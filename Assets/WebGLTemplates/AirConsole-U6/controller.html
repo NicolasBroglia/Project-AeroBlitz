@@ -1,26 +1,33 @@
 <html>
 	<head>
 		<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
-
 		<script src="https://www.airconsole.com/api/airconsole-1.10.0.js"></script>
-
 		<style type="text/css">
-			/* Basic Game Jam UI Layout to get you started */
 			body {
 			background-color: #222;
 			margin: 0;
 			display: flex;
-			justify-content: space-around;
+			justify-content: space-between;
 			align-items: center;
 			height: 100vh;
 			font-family: sans-serif;
 			color: white;
-			user-select: none; /* Prevents text highlighting when tapping rapidly */
+			user-select: none;
 			}
 
+			/* --- NEW 3-COLUMN LAYOUT --- */
+			.column {
+			width: 33.33vw; /* Exactly 1/3 of the screen width */
+			height: 100vh;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			}
+
+			/* --- LEFT COLUMN --- */
 			#joystick-zone {
-			width: 150px;
-			height: 150px;
+			width: 140px;
+			height: 140px;
 			background: rgba(255, 255, 255, 0.1);
 			border-radius: 50%;
 			display: flex;
@@ -29,74 +36,117 @@
 			text-align: center;
 			}
 
+			/* --- CENTER COLUMN --- */
 			#dash-btn {
-			width: 120px;
-			height: 120px;
+			width: 110px;
+			height: 110px;
 			background-color: #e74c3c;
 			border: none;
 			border-radius: 50%;
 			color: white;
+			font-size: 22px;
+			font-weight: bold;
+			}
+			#dash-btn:active { background-color: #c0392b; }
+
+			/* --- RIGHT COLUMN (1/3 of screen) --- */
+			#vertical-controls {
+			flex-direction: column;
+			justify-content: space-evenly; /* Spaces the massive buttons evenly */
+			}
+
+			.y-btn {
+			width: 85%; /* Fills 85% of its 1/3 screen column */
+			height: 42vh; /* Fills almost half the vertical screen height per button */
+			background-color: #3498db;
+			border: none;
+			border-radius: 15px;
+			color: white;
 			font-size: 24px;
 			font-weight: bold;
 			}
-
-			#dash-btn:active {
-			background-color: #c0392b;
-			}
+			.y-btn:active { background-color: #2980b9; }
 		</style>
-
 		<script type="text/javascript">
-			var airconsole; // Declare globally so it can be accessed anywhere
+			var airconsole;
+
+			// Global state for continuous movement
+			var currentX = 0;
+			var currentZ = 0;
+			var currentY = 0;
 
 			function App() {
-			// 1. Initialize the AirConsole instance
 			airconsole = new AirConsole({ "orientation": "landscape" });
 
-			// 2. Hook up the Dash button
+			// 1. DASH BUTTON (Center)
 			var dashBtn = document.getElementById("dash-btn");
 			dashBtn.addEventListener("touchstart", function(e) {
 			e.preventDefault();
 			airconsole.message(AirConsole.SCREEN, { "dash": true });
 			});
 
-			/*
-			* AirConsole template mouse fallback.
-			* Converts touch events to mouse clicks for PC browser testing.
-			*/
-			if (!("ontouchstart" in document.createElement("div"))) {
-			var elements = document.getElementsByTagName("*");
-			for (var i = 0; i < elements.length; ++i) {
-          var element = elements[i];
-          var ontouchstart = element.getAttribute("ontouchstart");
-          if (ontouchstart) { element.setAttribute("onmousedown", ontouchstart); }
-          var ontouchend = element.getAttribute("ontouchend");
-          if (ontouchend) { element.setAttribute("onmouseup", ontouchend); }
-        }
-        
-        // Manual fallback mapping for our Dash button
-        dashBtn.addEventListener("mousedown", function() {
-            airconsole.message(AirConsole.SCREEN, { "dash": true });
-        });
-      }
-    }
+			// 2. Y-AXIS BUTTONS (Right)
+			var upBtn = document.getElementById("up-btn");
+			var downBtn = document.getElementById("down-btn");
 
-    // 3. Movement function
-    // You will call this function whenever your joystick logic updates
-    function sendMovement(xValue, zValue) {
-        if (airconsole) {
-            airconsole.message(AirConsole.SCREEN, { 
-                "x": xValue, 
-                "z": zValue 
-            });
-        }
-    }
+			upBtn.addEventListener("touchstart", function(e) { e.preventDefault(); currentY = 1; sendInput(); });
+			upBtn.addEventListener("touchend", function(e) { e.preventDefault(); currentY = 0; sendInput(); });
+
+			downBtn.addEventListener("touchstart", function(e) { e.preventDefault(); currentY = -1; sendInput(); });
+			downBtn.addEventListener("touchend", function(e) { e.preventDefault(); currentY = 0; sendInput(); });
+
+			// 3. JOYSTICK (Left)
+			var joyZone = document.getElementById("joystick-zone");
+			joyZone.addEventListener("touchmove", function(e) {
+			e.preventDefault();
+			var touch = e.touches[0];
+			var rect = joyZone.getBoundingClientRect();
+
+			var rawX = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
+			var rawZ = ((touch.clientY - rect.top) / rect.height) * 2 - 1;
+
+			currentX = Math.max(-1, Math.min(1, rawX));
+			currentZ = Math.max(-1, Math.min(1, rawZ));
+
+			sendInput();
+			joyZone.innerHTML = "X: " + currentX.toFixed(2);
+			});
+
+			joyZone.addEventListener("touchend", function(e) {
+			e.preventDefault();
+			currentX = 0;
+			currentZ = 0;
+			sendInput();
+			joyZone.innerHTML = "Joystick";
+			});
+			}
+
+			// Consolidated send function
+			function sendInput() {
+			if (airconsole) {
+			airconsole.message(AirConsole.SCREEN, {
+			"x": currentX,
+			"y": currentY,
+			"z": currentZ
+			});
+			}
+			}
 		</script>
 	</head>
-
 	<body onload="window.app = new App()">
 
-		<div id="joystick-zone">Joystick Area</div>
-		<button id="dash-btn">DASH</button>
+		<div class="column">
+			<div id="joystick-zone">Joystick</div>
+		</div>
+
+		<div class="column">
+			<button id="dash-btn">DASH</button>
+		</div>
+
+		<div id="vertical-controls" class="column">
+			<button id="up-btn" class="y-btn">UP</button>
+			<button id="down-btn" class="y-btn">DOWN</button>
+		</div>
 
 	</body>
 </html>

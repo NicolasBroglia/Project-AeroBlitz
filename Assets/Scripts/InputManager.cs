@@ -8,6 +8,7 @@ public class InputManager : MonoBehaviour
 
     // Public getters for Programmer 2's character scripts
     public float MoveX { get; private set; }
+    public float MoveY { get; private set; }
     public float MoveZ { get; private set; }
     public bool IsDashing { get; private set; }
 
@@ -35,6 +36,7 @@ public class InputManager : MonoBehaviour
         // Parse the JSON data sent from the controller.html
         if (data["x"] != null) MoveX = (float)data["x"];
         if (data["z"] != null) MoveZ = (float)data["z"];
+        if (data["y"] != null) MoveY = (float)data["y"];
 
         if (data["dash"] != null && (bool)data["dash"])
         {

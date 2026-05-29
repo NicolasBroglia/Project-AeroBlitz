@@ -1,0 +1,102 @@
+<html>
+	<head>
+		<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+
+		<script src="https://www.airconsole.com/api/airconsole-1.10.0.js"></script>
+
+		<style type="text/css">
+			/* Basic Game Jam UI Layout to get you started */
+			body {
+			background-color: #222;
+			margin: 0;
+			display: flex;
+			justify-content: space-around;
+			align-items: center;
+			height: 100vh;
+			font-family: sans-serif;
+			color: white;
+			user-select: none; /* Prevents text highlighting when tapping rapidly */
+			}
+
+			#joystick-zone {
+			width: 150px;
+			height: 150px;
+			background: rgba(255, 255, 255, 0.1);
+			border-radius: 50%;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			text-align: center;
+			}
+
+			#dash-btn {
+			width: 120px;
+			height: 120px;
+			background-color: #e74c3c;
+			border: none;
+			border-radius: 50%;
+			color: white;
+			font-size: 24px;
+			font-weight: bold;
+			}
+
+			#dash-btn:active {
+			background-color: #c0392b;
+			}
+		</style>
+
+		<script type="text/javascript">
+			var airconsole; // Declare globally so it can be accessed anywhere
+
+			function App() {
+			// 1. Initialize the AirConsole instance
+			airconsole = new AirConsole({ "orientation": "landscape" });
+
+			// 2. Hook up the Dash button
+			var dashBtn = document.getElementById("dash-btn");
+			dashBtn.addEventListener("touchstart", function(e) {
+			e.preventDefault();
+			airconsole.message(AirConsole.SCREEN, { "dash": true });
+			});
+
+			/*
+			* AirConsole template mouse fallback.
+			* Converts touch events to mouse clicks for PC browser testing.
+			*/
+			if (!("ontouchstart" in document.createElement("div"))) {
+			var elements = document.getElementsByTagName("*");
+			for (var i = 0; i < elements.length; ++i) {
+          var element = elements[i];
+          var ontouchstart = element.getAttribute("ontouchstart");
+          if (ontouchstart) { element.setAttribute("onmousedown", ontouchstart); }
+          var ontouchend = element.getAttribute("ontouchend");
+          if (ontouchend) { element.setAttribute("onmouseup", ontouchend); }
+        }
+        
+        // Manual fallback mapping for our Dash button
+        dashBtn.addEventListener("mousedown", function() {
+            airconsole.message(AirConsole.SCREEN, { "dash": true });
+        });
+      }
+    }
+
+    // 3. Movement function
+    // You will call this function whenever your joystick logic updates
+    function sendMovement(xValue, zValue) {
+        if (airconsole) {
+            airconsole.message(AirConsole.SCREEN, { 
+                "x": xValue, 
+                "z": zValue 
+            });
+        }
+    }
+		</script>
+	</head>
+
+	<body onload="window.app = new App()">
+
+		<div id="joystick-zone">Joystick Area</div>
+		<button id="dash-btn">DASH</button>
+
+	</body>
+</html>

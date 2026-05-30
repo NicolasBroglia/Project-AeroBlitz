@@ -15,16 +15,14 @@
 			user-select: none;
 			}
 
-			/* --- NEW 3-COLUMN LAYOUT --- */
 			.column {
-			width: 33.33vw; /* Exactly 1/3 of the screen width */
+			width: 33.33vw;
 			height: 100vh;
 			display: flex;
 			justify-content: center;
 			align-items: center;
 			}
 
-			/* --- LEFT COLUMN --- */
 			#joystick-zone {
 			width: 140px;
 			height: 140px;
@@ -33,10 +31,19 @@
 			display: flex;
 			justify-content: center;
 			align-items: center;
-			text-align: center;
+			position: relative;
 			}
 
-			/* --- CENTER COLUMN --- */
+			#joystick-nub {
+			width: 60px;
+			height: 60px;
+			background-color: rgba(255, 255, 255, 0.6);
+			border-radius: 50%;
+			position: absolute;
+			pointer-events: none;
+			transition: transform 0.05s linear;
+			}
+
 			#dash-btn {
 			width: 110px;
 			height: 110px;
@@ -49,15 +56,14 @@
 			}
 			#dash-btn:active { background-color: #c0392b; }
 
-			/* --- RIGHT COLUMN (1/3 of screen) --- */
 			#vertical-controls {
 			flex-direction: column;
-			justify-content: space-evenly; /* Spaces the massive buttons evenly */
+			justify-content: space-evenly;
 			}
 
 			.y-btn {
-			width: 85%; /* Fills 85% of its 1/3 screen column */
-			height: 42vh; /* Fills almost half the vertical screen height per button */
+			width: 85%;
+			height: 42vh;
 			background-color: #3498db;
 			border: none;
 			border-radius: 15px;
@@ -69,8 +75,6 @@
 		</style>
 		<script type="text/javascript">
 			var airconsole;
-
-			// Global state for continuous movement
 			var currentX = 0;
 			var currentZ = 0;
 			var currentY = 0;
@@ -78,16 +82,33 @@
 			function App() {
 			airconsole = new AirConsole({ "orientation": "landscape" });
 
-			// 1. DASH BUTTON (Center)
 			var dashBtn = document.getElementById("dash-btn");
-			dashBtn.addEventListener("touchstart", function(e) {
-			e.preventDefault();
-			airconsole.message(AirConsole.SCREEN, { "dash": true });
-			});
-
-			// 2. Y-AXIS BUTTONS (Right)
 			var upBtn = document.getElementById("up-btn");
 			var downBtn = document.getElementById("down-btn");
+			var joyZone = document.getElementById("joystick-zone");
+			var joyNub = document.getElementById("joystick-nub");
+
+			function calculateJoystickMath(clientX, clientY) {
+			var rect = joyZone.getBoundingClientRect();
+			var rawX = ((clientX - rect.left) / rect.width) * 2 - 1;
+			var rawZ = -(((clientY - rect.top) / rect.height) * 2 - 1);
+
+			currentX = Math.max(-1, Math.min(1, rawX));
+			currentZ = Math.max(-1, Math.min(1, rawZ));
+
+			joyNub.style.transform = `translate(${currentX * 40}px, ${-currentZ * 40}px)`;
+			sendInput();
+			}
+
+			function resetJoystick() {
+			currentX = 0;
+			currentZ = 0;
+			joyNub.style.transform = `translate(0px, 0px)`;
+			sendInput();
+			}
+
+			// --- TOUCH EVENTS ---
+			dashBtn.addEventListener("touchstart", function(e) { e.preventDefault(); airconsole.message(AirConsole.SCREEN, { "dash": true }); });
 
 			upBtn.addEventListener("touchstart", function(e) { e.preventDefault(); currentY = 1; sendInput(); });
 			upBtn.addEventListener("touchend", function(e) { e.preventDefault(); currentY = 0; sendInput(); });
@@ -95,58 +116,92 @@
 			downBtn.addEventListener("touchstart", function(e) { e.preventDefault(); currentY = -1; sendInput(); });
 			downBtn.addEventListener("touchend", function(e) { e.preventDefault(); currentY = 0; sendInput(); });
 
-			// 3. JOYSTICK (Left)
-			var joyZone = document.getElementById("joystick-zone");
+			// The fix: Added touchstart to stop the browser from scrolling
+			joyZone.addEventListener("touchstart", function(e) {
+			e.preventDefault();
+			calculateJoystickMath(e.touches[0].clientX, e.touches[0].clientY);
+			});
+
 			joyZone.addEventListener("touchmove", function(e) {
 			e.preventDefault();
-			var touch = e.touches[0];
-			var rect = joyZone.getBoundingClientRect();
-
-			var rawX = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
-			var rawZ = ((touch.clientY - rect.top) / rect.height) * 2 - 1;
-
-			currentX = Math.max(-1, Math.min(1, rawX));
-			currentZ = Math.max(-1, Math.min(1, rawZ));
-
-			sendInput();
-			joyZone.innerHTML = "X: " + currentX.toFixed(2);
+			calculateJoystickMath(e.touches[0].clientX, e.touches[0].clientY);
 			});
 
 			joyZone.addEventListener("touchend", function(e) {
 			e.preventDefault();
-			currentX = 0;
-			currentZ = 0;
-			sendInput();
-			joyZone.innerHTML = "Joystick";
+			resetJoystick();
 			});
+
+			// The safety net: Catch browser interruptions
+			joyZone.addEventListener("touchcancel", function(e) {
+			e.preventDefault();
+			resetJoystick();
+			});
+
+			// --- PC MOUSE EVENTS ---
+			var isDragging = false;
+
+			joyZone.addEventListener("mousedown", function(e) {
+			isDragging = true;
+			calculateJoystickMath(e.clientX, e.clientY);
+			});
+
+			window.addEventListener("mousemove", function(e) {
+			if (isDragging) calculateJoystickMath(e.clientX, e.clientY);
+			});
+
+			window.addEventListener("mouseup", function(e) {
+			if (isDragging) {
+			isDragging = false;
+			resetJoystick();
+			}
+			});
+
+			dashBtn.addEventListener("mousedown", function() { airconsole.message(AirConsole.SCREEN, { "dash": true }); });
+
+			upBtn.addEventListener("mousedown", function() { currentY = 1; sendInput(); });
+			upBtn.addEventListener("mouseup", function() { currentY = 0; sendInput(); });
+
+			downBtn.addEventListener("mousedown", function() { currentY = -1; sendInput(); });
+			downBtn.addEventListener("mouseup", function() { currentY = 0; sendInput(); });
 			}
 
-			// Consolidated send function
+			// --- RATE LIMITER VARIABLES ---
+			var lastSendTime = 0;
+			var sendDelay = 40; // 40ms = approx 25 updates per second
+
 			function sendInput() {
-			if (airconsole) {
+			if (!airconsole) return;
+
+			var now = Date.now();
+
+			// We ALWAYS want to send the message instantly if the player let go of the controls
+			var isStopping = (currentX === 0 && currentY === 0 && currentZ === 0);
+
+			// Only send data if it's a STOP command, OR if 40 milliseconds have passed
+			if (isStopping || (now - lastSendTime > sendDelay)) {
 			airconsole.message(AirConsole.SCREEN, {
 			"x": currentX,
 			"y": currentY,
 			"z": currentZ
 			});
+			lastSendTime = now;
 			}
 			}
 		</script>
 	</head>
 	<body onload="window.app = new App()">
-
 		<div class="column">
-			<div id="joystick-zone">Joystick</div>
+			<div id="joystick-zone">
+				<div id="joystick-nub"></div>
+			</div>
 		</div>
-
 		<div class="column">
 			<button id="dash-btn">DASH</button>
 		</div>
-
 		<div id="vertical-controls" class="column">
 			<button id="up-btn" class="y-btn">UP</button>
 			<button id="down-btn" class="y-btn">DOWN</button>
 		</div>
-
 	</body>
 </html>

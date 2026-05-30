@@ -132,20 +132,62 @@ public class HunterController : MonoBehaviour
         currentState = newState;
     }
 
-    // --- ESQUELETO PARA LA FASE 3 ---
-    /*
+
+    private void HandleHunterCollision(Collision collision)
+    {
+        Debug.Log("¡Choque entre cazadores!");
+        ChangeState(HunterState.Stunned);
+
+        // Opcional: Aplicar una fuerza de rebote extra para separarlos
+        Vector3 bounceDirection = (transform.position - collision.transform.position).normalized;
+        rb.AddForce(bounceDirection * 10f, ForceMode.Impulse);
+
+        // Iniciar el temporizador para salir del stun
+        StartCoroutine(StunRecoveryRoutine());
+    }
+
+    private System.Collections.IEnumerator StunRecoveryRoutine()
+    {
+        // Queda paralizado por 1.5 segundos
+        yield return new WaitForSeconds(1.5f);
+
+        // Volver a la persecución si el juego sigue activo
+        if (currentState == HunterState.Stunned)
+        {
+            ChangeState(HunterState.Chasing);
+        }
+    }
+
     private void OnCollisionEnter(Collision collision)
     {
+        // Solo interactuamos si estamos cazando activamente
         if (currentState != HunterState.Chasing) return;
 
-        // Requiere que le asignes el Tag "Snitch" al GameObject de la Snitch en Unity
+        // --- 1. HUNTER VS SNITCH (Catch) ---
         if (collision.gameObject.CompareTag("Snitch"))
         {
             ChangeState(HunterState.CapturedSnitch);
             Debug.Log($"¡{gameObject.name} atrapó la Snitch!");
-            
-            // Acá a futuro le avisamos al GameManager que la partida terminó
+
+            // Nico's Hook: Avisar al Game Manager que hubo un tag
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.OnPlayerTagged();
+            }
+
+            // Cambiamos el estado de la Snitch a capturada
+            SnitchController snitch = collision.gameObject.GetComponent<SnitchController>();
+            if (snitch != null)
+            {
+                snitch.ChangeState(SnitchController.SnitchState.Captured);
+            }
+            return;
+        }
+
+        // --- 2. HUNTER VS HUNTER (Stun) ---
+        if (collision.gameObject.CompareTag("Hunter"))
+        {
+            HandleHunterCollision(collision);
         }
     }
-    */
 }

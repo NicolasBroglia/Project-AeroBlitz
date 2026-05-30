@@ -4,7 +4,7 @@ using System.Collections.Generic;
 [RequireComponent(typeof(Camera))]
 public class DynamicCamera : MonoBehaviour
 {
-    public List<Transform> targets;
+    public List<Transform> targets = new List<Transform>();
 
     [Header("Positioning")]
     public Vector3 offset;
@@ -30,6 +30,10 @@ public class DynamicCamera : MonoBehaviour
 
     void LateUpdate()
     {
+        // This is the magic line. It instantly removes any "Empty" slots 
+        // or destroyed players from the list before doing any math.
+        targets.RemoveAll(t => t == null);
+
         if (targets.Count == 0) return;
 
         MoveCamera();
@@ -86,4 +90,28 @@ public class DynamicCamera : MonoBehaviour
 
         return Mathf.Max(bounds.size.x, bounds.size.z);
     }
+    // Teleports the camera instantly to the perfect starting position
+    public void SnapToTargets()
+    {
+        targets.RemoveAll(t => t == null);
+        if (targets.Count == 0) return;
+
+        // 1. Snap Position
+        Vector3 centerPoint = GetCenterPoint();
+        transform.position = centerPoint + offset;
+
+        // 2. Snap Zoom
+        float greatestDistance = GetGreatestDistance();
+        float targetZoom = Mathf.Lerp(minZoom, maxZoom, greatestDistance / zoomLimiter);
+
+        if (cam.orthographic)
+        {
+            cam.orthographicSize = targetZoom;
+        }
+        else
+        {
+            cam.fieldOfView = targetZoom;
+        }
+    }
+
 }

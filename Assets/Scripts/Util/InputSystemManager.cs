@@ -1,48 +1,37 @@
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 public class InputSystemManager : MonoBehaviour
 {
-    [Header("Input Actions")]
-    [Tooltip("Referencia a la acción de movimiento (Action Type: Value, Control Type: Vector2)")]
-    [SerializeField] private InputActionReference moveAction;
+    [Header("AirConsole Link")]
+    public int deviceID = -1;
 
-    [Tooltip("Referencia a la acción de elevación (Action Type: Value, Control Type: Axis)")]
-    [SerializeField] private InputActionReference elevationAction;
-
-    private void OnEnable()
-    {
-        if (moveAction != null) moveAction.action.Enable();
-        if (elevationAction != null) elevationAction.action.Enable();
-    }
-
-    private void OnDisable()
-    {
-        if (moveAction != null) moveAction.action.Disable();
-        if (elevationAction != null) elevationAction.action.Disable();
-    }
-
-    /// <summary>
-    /// Devuelve el vector de movimiento normalizado en el plano XZ.
-    /// </summary>
     public Vector2 GetMovement()
     {
-        if (moveAction != null)
+        if (InputManager.Instance != null && deviceID != -1)
         {
-            return moveAction.action.ReadValue<Vector2>();
+            var data = InputManager.Instance.GetInputForDevice(deviceID);
+            if (data != null) return new Vector2(data.MoveX, data.MoveZ);
         }
         return Vector2.zero;
     }
 
-    /// <summary>
-    /// Devuelve el valor de elevación (-1 para bajar, 1 para subir).
-    /// </summary>
     public float GetElevation()
     {
-        if (elevationAction != null)
+        if (InputManager.Instance != null && deviceID != -1)
         {
-            return elevationAction.action.ReadValue<float>();
+            var data = InputManager.Instance.GetInputForDevice(deviceID);
+            if (data != null) return data.MoveY;
         }
         return 0f;
+    }
+
+    public bool GetDash()
+    {
+        if (InputManager.Instance != null && deviceID != -1)
+        {
+            var data = InputManager.Instance.GetInputForDevice(deviceID);
+            if (data != null) return data.IsDashing;
+        }
+        return false;
     }
 }

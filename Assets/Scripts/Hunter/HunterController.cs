@@ -16,7 +16,7 @@ public class HunterController : MonoBehaviour
 
     [Header("References")]
     [Tooltip("Cada cazador debe tener su propio InputManager asignado")]
-    [SerializeField] private InputManager inputManager;
+    [SerializeField] private InputSystemManager inputManager;
     private Rigidbody rb;
 
     [Header("Movement Settings")]
@@ -38,7 +38,7 @@ public class HunterController : MonoBehaviour
         // Confirmamos que vuelan sin gravedad
         rb.useGravity = false;
 
-        inputManager = GetComponent<InputManager>();
+        inputManager = GetComponent<InputSystemManager>();
 
     }
 

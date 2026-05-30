@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-public class InputManager : MonoBehaviour
+public class InputSystemManager : MonoBehaviour
 {
     [Header("Input Actions")]
     [Tooltip("Referencia a la acción de movimiento (Action Type: Value, Control Type: Vector2)")]

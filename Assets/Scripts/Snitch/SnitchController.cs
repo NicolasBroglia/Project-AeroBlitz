@@ -15,7 +15,7 @@ public class SnitchController : MonoBehaviour
     public SnitchState currentState = SnitchState.Idle;
 
     [Header("References")]
-    [SerializeField] private InputManager inputManager;
+    [SerializeField] private InputSystemManager inputManager;
     private Rigidbody rb;
 
     [Header("Movement Settings")]
@@ -33,7 +33,7 @@ public class SnitchController : MonoBehaviour
         rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
         rb.useGravity = false;
 
-        inputManager = GetComponent<InputManager>();
+        inputManager = GetComponent<InputSystemManager>();
     }
 
     private void Update()

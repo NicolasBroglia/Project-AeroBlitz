@@ -141,6 +141,12 @@ public class HunterController : MonoBehaviour
             Quaternion targetRotation = Quaternion.LookRotation(rb.linearVelocity.normalized);
             rb.MoveRotation(Quaternion.Slerp(rb.rotation, targetRotation, Time.fixedDeltaTime * rotationSpeed));
         }
+        else
+        {
+            Quaternion flatRotation = Quaternion.Euler(0f, rb.rotation.eulerAngles.y, 0f);
+
+            rb.MoveRotation(Quaternion.Slerp(rb.rotation, flatRotation, Time.fixedDeltaTime * rotationSpeed));
+        }
     }
 
     private void ApplyHeightClamp()

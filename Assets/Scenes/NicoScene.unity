@@ -272,10 +272,12 @@ MonoBehaviour:
   targets: []
   offset: {x: 0, y: 25, z: -20}
   smoothTime: 0.5
+  moveVelocity: {x: 0, y: 0, z: 0}
   minZoom: 15
   maxZoom: 40
   zoomLimiter: 30
   zoomSmoothTime: 0.5
+  zoomVelocity: 0
 --- !u!1 &581557783
 GameObject:
   m_ObjectHideFlags: 0
@@ -306,6 +308,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameManager
   matchDuration: 120
+  currentMatchTimer: 0
   hunterPrefab: {fileID: 8186502679140566490, guid: cafe8b51d9e73cd4a8889c51521ea781, type: 3}
   snitchPrefab: {fileID: 3669509134746835230, guid: fa87be2ac6c5ce8428893c9a90e8098c, type: 3}
   spawnPoints:
@@ -313,6 +316,10 @@ MonoBehaviour:
   - {fileID: 919606139}
   debugSinglePlayer: 0
   offlineMode: 1
+  connectedDevices: 
+  activePlayers: []
+  clashingHunter: {fileID: 0}
+  clashingSnitch: {fileID: 0}
 --- !u!4 &581557785
 Transform:
   m_ObjectHideFlags: 0

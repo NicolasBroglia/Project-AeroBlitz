@@ -7,19 +7,18 @@ public class DynamicCamera : MonoBehaviour
     public List<Transform> targets = new List<Transform>();
 
     [Header("Positioning")]
-    public Vector3 offset;
-    public float smoothTime = 0.5f;
-    private Vector3 moveVelocity;
+    [SerializeField] private Vector3 offset;
+    [SerializeField] private float smoothTime = 0.5f;
+    [SerializeField] private Vector3 moveVelocity;
 
     [Header("Zooming Bounds")]
-    // Adjusted defaults for a typical perspective camera
-    public float minZoom = 40f;  // The closest it will zoom in
-    public float maxZoom = 85f;  // The furthest it will pull back
-    public float zoomLimiter = 40f; // The distance where it hits maxZoom
+    [SerializeField] private float minZoom = 40f;
+    [SerializeField] private float maxZoom = 85f;
+    [SerializeField] private float zoomLimiter = 40f;
 
     [Header("Zoom Speed")]
-    public float zoomSmoothTime = 0.5f; // Matches movement smoothTime
-    private float zoomVelocity;
+    [SerializeField] private float zoomSmoothTime = 0.5f;
+    [SerializeField] private float zoomVelocity;
 
     private Camera cam;
 
@@ -30,10 +29,7 @@ public class DynamicCamera : MonoBehaviour
 
     void LateUpdate()
     {
-        // This is the magic line. It instantly removes any "Empty" slots 
-        // or destroyed players from the list before doing any math.
         targets.RemoveAll(t => t == null);
-
         if (targets.Count == 0) return;
 
         MoveCamera();
@@ -44,18 +40,14 @@ public class DynamicCamera : MonoBehaviour
     {
         Vector3 centerPoint = GetCenterPoint();
         Vector3 newPosition = centerPoint + offset;
-
         transform.position = Vector3.SmoothDamp(transform.position, newPosition, ref moveVelocity, smoothTime);
     }
 
     void ZoomCamera()
     {
         float greatestDistance = GetGreatestDistance();
-
-        // Calculate the target zoom based on distance
         float targetZoom = Mathf.Lerp(minZoom, maxZoom, greatestDistance / zoomLimiter);
 
-        // Apply using SmoothDamp instead of Lerp for responsive, snappy zooming
         if (cam.orthographic)
         {
             cam.orthographicSize = Mathf.SmoothDamp(cam.orthographicSize, targetZoom, ref zoomVelocity, zoomSmoothTime);
@@ -90,17 +82,15 @@ public class DynamicCamera : MonoBehaviour
 
         return Mathf.Max(bounds.size.x, bounds.size.z);
     }
-    // Teleports the camera instantly to the perfect starting position
+
     public void SnapToTargets()
     {
         targets.RemoveAll(t => t == null);
         if (targets.Count == 0) return;
 
-        // 1. Snap Position
         Vector3 centerPoint = GetCenterPoint();
         transform.position = centerPoint + offset;
 
-        // 2. Snap Zoom
         float greatestDistance = GetGreatestDistance();
         float targetZoom = Mathf.Lerp(minZoom, maxZoom, greatestDistance / zoomLimiter);
 
@@ -113,5 +103,4 @@ public class DynamicCamera : MonoBehaviour
             cam.fieldOfView = targetZoom;
         }
     }
-
 }

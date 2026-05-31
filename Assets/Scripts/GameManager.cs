@@ -38,7 +38,9 @@ public class GameManager : MonoBehaviour
     [Header("Testing")]
     [SerializeField] private bool debugSinglePlayer = false;
     [SerializeField] private bool offlineMode = false;
-    [SerializeField][Range(2, 8)] private int offlinePlayerCount = 3;
+    [SerializeField][Range(2, 5)] private int offlinePlayerCount = 3;
+
+    private const int MAX_PLAYERS = 5;
 
     [Tooltip("Uncheck to hide the OnGUI dashboard so it doesn't block the real UI")]
     [SerializeField] private bool showDebugGUI = true;
@@ -95,37 +97,50 @@ public class GameManager : MonoBehaviour
     }
 
     [ContextMenu("DEBUG: Force Hunter Tag Win")]
+    [ContextMenu("DEBUG: Force Hunter Tag Win")]
     public void DebugForceTag()
     {
-        if (CurrentState == GameState.ActiveMatch)
+        if (CurrentState == GameState.ActiveMatch && connectedDevices.Count > 1)
         {
             Debug.Log("<color=yellow>DEBUG: Forcing a Tag!</color>");
-            OnPlayerTagged();
+            // Simulate the first hunter in the list making the catch for testing
+            OnPlayerTagged(connectedDevices[1]);
         }
     }
     void OnDeviceConnect(int deviceId)
     {
+        if (!connectedDevices.Contains(deviceId) && connectedDevices.Count >= MAX_PLAYERS)
+        {
+            Debug.LogWarning($"Game is full! Device {deviceId} connected as a spectator.");
+            return;
+        }
+
         if (!connectedDevices.Contains(deviceId))
         {
             connectedDevices.Add(deviceId);
 
-            // --- Assign a permanent color to this device ---
+            // Assign a permanent color to this device
             if (!deviceColors.ContainsKey(deviceId))
             {
                 deviceColors[deviceId] = availableColors[nextColorIndex % availableColors.Length];
                 nextColorIndex++;
             }
-            // ----------------------------------------------------
 
             int requiredPlayers = debugSinglePlayer ? 1 : 2;
 
-            // 1. If we were waiting in the lobby, start the whole game loop
             if (CurrentState == GameState.Lobby && connectedDevices.Count >= requiredPlayers)
             {
                 StartMatchInit();
             }
-            else if (CurrentState == GameState.ActiveMatch || CurrentState == GameState.Countdown)
+            else if (CurrentState == GameState.ActiveMatch)
             {
+                SpawnPlayers();
+                WakeUpPlayers(); // <--- THIS FIXES THE FREEZE
+            }
+            else if (CurrentState == GameState.Countdown)
+            {
+                // If they join during the countdown, just spawn them. 
+                // The coroutine will wake them up naturally in a few seconds.
                 SpawnPlayers();
             }
         }
@@ -212,9 +227,14 @@ public class GameManager : MonoBehaviour
 
         if (hunterWins)
         {
+            // --- NEW: Grab the specific winner's ID ---
+            int winningHunterID = clashingHunter.GetComponent<InputSystemManager>().deviceID;
+
             clashingHunter.ChangeState(HunterController.HunterState.CapturedSnitch);
             clashingSnitch.ChangeState(SnitchController.SnitchState.Captured);
-            OnPlayerTagged();
+
+            // Pass the winner's ID to the next step
+            OnPlayerTagged(winningHunterID);
         }
         else
         {
@@ -245,8 +265,6 @@ public class GameManager : MonoBehaviour
     private IEnumerator StartCountdownRoutine()
     {
         ChangeState(GameState.Countdown);
-
-        // Players spawn in their Idle states automatically
         SpawnPlayers();
 
         Debug.Log("3..."); yield return new WaitForSeconds(1f);
@@ -256,25 +274,8 @@ public class GameManager : MonoBehaviour
 
         ChangeState(GameState.ActiveMatch);
 
-        // --- BEST PRACTICE: MANAGER-DRIVEN START ---
-        // The exact millisecond the match starts, tell the frozen players to move
-        foreach (var player in activePlayers)
-        {
-            if (player != null)
-            {
-                // If the object has a SnitchController, tell it to flee
-                if (player.TryGetComponent<SnitchController>(out var snitch))
-                {
-                    snitch.ChangeState(SnitchController.SnitchState.Fleeing);
-                }
-
-                // If the object has a HunterController, tell it to chase
-                if (player.TryGetComponent<HunterController>(out var hunter))
-                {
-                    hunter.ChangeState(HunterController.HunterState.Chasing);
-                }
-            }
-        }
+        // --- Manager-Driven Start ---
+        WakeUpPlayers();
     }
 
     private void SpawnPlayers()
@@ -303,7 +304,7 @@ public class GameManager : MonoBehaviour
             }
             else
             {
-                // Safety fallback just in case you forget to assign hunter spawn points in the editor
+                // Safety fallback just in case you forget to assign hunter spawn points
                 Transform chosenSpawn = snitchSpawnPoint;
 
                 // Draw a random, unique spawn point for this Hunter
@@ -316,7 +317,22 @@ public class GameManager : MonoBehaviour
                     availableHunterSpawns.RemoveAt(randomIndex);
                 }
 
-                GameObject hunter = Instantiate(hunterPrefab, chosenSpawn.position, Quaternion.identity);
+                // --- Calculate rotation to face the Snitch (Center) ---
+                // Math: Target Position - Origin Position = Direction Vector
+                Vector3 directionToCenter = snitchSpawnPoint.position - chosenSpawn.position;
+
+                // Flatten the Y axis so the Hunter stays perfectly upright
+                directionToCenter.y = 0f;
+
+                // Convert that direction into a rotation (Fallback to identity if they are exactly overlapping)
+                Quaternion spawnRotation = directionToCenter != Vector3.zero
+                    ? Quaternion.LookRotation(directionToCenter)
+                    : Quaternion.identity;
+                // -----------------------------------------------------------
+
+                // Instantiate using our new spawnRotation instead of Quaternion.identity
+                GameObject hunter = Instantiate(hunterPrefab, chosenSpawn.position, spawnRotation);
+
                 hunter.GetComponent<InputSystemManager>().deviceID = connectedDevices[i];
                 ApplyColorToPlayer(hunter, connectedDevices[i]);
                 activePlayers.Add(hunter);
@@ -346,25 +362,37 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    public void OnPlayerTagged()
+    // Add the int parameter here
+    public void OnPlayerTagged(int winningHunterID)
     {
         ChangeState(GameState.PostTag);
-        int snitchID = connectedDevices[0];
-        Debug.Log($"TAG! Device {snitchID} held the Snitch for {snitchTimeScores[snitchID]:F1} seconds total so far.");
-        StartCoroutine(ResetRoundRoutine());
+        int oldSnitchID = connectedDevices[0];
+
+        Debug.Log($"TAG! Device {oldSnitchID} caught by Device {winningHunterID}!");
+        Debug.Log($"Device {oldSnitchID} held the Snitch for {snitchTimeScores[oldSnitchID]:F1} seconds total so far.");
+
+        // Pass it to the Coroutine
+        StartCoroutine(ResetRoundRoutine(winningHunterID));
     }
 
-    private IEnumerator ResetRoundRoutine()
+    // Add the int parameter here
+    private IEnumerator ResetRoundRoutine(int winningHunterID)
     {
         yield return new WaitForSeconds(2f);
 
-        // SWAP MECHANIC: Rotate the array. 
-        // The old Snitch goes to the end, Hunter 1 becomes the new Snitch.
+        // --- NEW REAL SWAP MECHANIC ---
         if (connectedDevices.Count >= 2)
         {
-            int oldSnitch = connectedDevices[0];
-            connectedDevices.RemoveAt(0);
-            connectedDevices.Add(oldSnitch);
+            // Find where the winning hunter currently sits in the array
+            int winnerIndex = connectedDevices.IndexOf(winningHunterID);
+
+            if (winnerIndex != -1)
+            {
+                // Swap the old snitch (Index 0) with the winning hunter
+                int oldSnitch = connectedDevices[0];
+                connectedDevices[0] = winningHunterID;
+                connectedDevices[winnerIndex] = oldSnitch;
+            }
         }
 
         StartCoroutine(StartCountdownRoutine());
@@ -400,6 +428,28 @@ public class GameManager : MonoBehaviour
             StartMatchInit();
         }
     }
+    private void WakeUpPlayers()
+    {
+        foreach (var player in activePlayers)
+        {
+            if (player != null)
+            {
+                // If the object has a SnitchController, tell it to flee
+                if (player.TryGetComponent<SnitchController>(out var snitch))
+                {
+                    snitch.ChangeState(SnitchController.SnitchState.Fleeing);
+                }
+
+                // If the object has a HunterController, tell it to chase
+                if (player.TryGetComponent<HunterController>(out var hunter))
+                {
+                    hunter.ChangeState(HunterController.HunterState.Chasing);
+                }
+            }
+        }
+    }
+
+
 
 #if UNITY_EDITOR
     private void OnGUI()

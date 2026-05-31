@@ -29,8 +29,8 @@ public class InputSystemManager : MonoBehaviour
     {
         if (InputManager.Instance != null && deviceID != -1)
         {
-            var data = InputManager.Instance.GetInputForDevice(deviceID);
-            if (data != null) return data.IsDashing;
+            // Use the new Consume method instead of pulling the whole data object
+            return InputManager.Instance.ConsumeDash(deviceID);
         }
         return false;
     }

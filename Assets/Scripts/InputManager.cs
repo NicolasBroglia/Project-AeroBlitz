@@ -124,12 +124,30 @@ public class InputManager : MonoBehaviour
         return null;
     }
 
-    void Update()
+    // Add this new method:
+    public bool ConsumeDash(int deviceID)
     {
-        // Reset all dash flags at the end of the frame (like GetButtonDown)
-        foreach (var input in deviceInputs.Values)
+        // 1. Offline Keyboard Check
+        if (offlineKeyboard)
         {
-            if (input.IsDashing) input.IsDashing = false;
+            var kb = Keyboard.current;
+            if (kb != null)
+            {
+                if (deviceID == 0) return kb.spaceKey.wasPressedThisFrame;
+                if (deviceID == 1) return kb.enterKey.wasPressedThisFrame;
+            }
         }
+
+        // 2. AirConsole Network Check
+        if (deviceInputs.ContainsKey(deviceID))
+        {
+            bool dashTriggered = deviceInputs[deviceID].IsDashing;
+
+            // "Consume" the input immediately so it doesn't fire continuously
+            deviceInputs[deviceID].IsDashing = false;
+
+            return dashTriggered;
+        }
+        return false;
     }
 }

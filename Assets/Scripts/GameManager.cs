@@ -28,11 +28,17 @@ public class GameManager : MonoBehaviour
     [Header("Prefabs & Spawns")]
     [SerializeField] private GameObject hunterPrefab;
     [SerializeField] private GameObject snitchPrefab;
-    [SerializeField] private Transform[] spawnPoints;
+
+    [Tooltip("The center of the map. The Snitch ALWAYS spawns here.")]
+    [SerializeField] private Transform snitchSpawnPoint;      
+
+    [Tooltip("All the surrounding spots. Hunters are randomly placed here.")]
+    [SerializeField] private Transform[] hunterSpawnPoints;   
 
     [Header("Testing")]
     [SerializeField] private bool debugSinglePlayer = false;
     [SerializeField] private bool offlineMode = false;
+    [SerializeField][Range(2, 8)] private int offlinePlayerCount = 3;
 
     [SerializeField] private List<int> connectedDevices = new List<int>();
     [SerializeField] private List<GameObject> activePlayers = new List<GameObject>();
@@ -62,8 +68,11 @@ public class GameManager : MonoBehaviour
     {
         if (offlineMode)
         {
-            connectedDevices.Add(0);
-            connectedDevices.Add(1);
+            // Instantly fake 'N' connected phones and skip the Lobby
+            for (int i = 0; i < offlinePlayerCount; i++)
+            {
+                connectedDevices.Add(i);
+            }
             StartMatchInit();
         }
         else ChangeState(GameState.Lobby);
@@ -76,9 +85,16 @@ public class GameManager : MonoBehaviour
             connectedDevices.Add(deviceId);
 
             int requiredPlayers = debugSinglePlayer ? 1 : 2;
+
+            // 1. If we were waiting in the lobby, start the whole game loop
             if (CurrentState == GameState.Lobby && connectedDevices.Count >= requiredPlayers)
             {
                 StartMatchInit();
+            }
+
+            else if (CurrentState == GameState.ActiveMatch || CurrentState == GameState.Countdown)
+            {
+                SpawnPlayers();
             }
         }
     }
@@ -228,27 +244,50 @@ public class GameManager : MonoBehaviour
         foreach (var player in activePlayers) { if (player != null) Destroy(player); }
         activePlayers.Clear();
 
-        int requiredPlayers = debugSinglePlayer ? 1 : 2;
-        if (connectedDevices.Count < requiredPlayers) return;
+        if (connectedDevices.Count == 0) return;
 
-        GameObject snitch = Instantiate(snitchPrefab, spawnPoints[0].position, Quaternion.identity);
-        InputSystemManager snitchInput = snitch.GetComponent<InputSystemManager>();
-        snitchInput.deviceID = connectedDevices[0];
-        activePlayers.Add(snitch);
+        List<Transform> camTargets = new List<Transform>();
 
-        GameObject hunter = Instantiate(hunterPrefab, spawnPoints[1].position, Quaternion.identity);
-        InputSystemManager hunterInput = hunter.GetComponent<InputSystemManager>();
+        // Create a temporary "deck" of available hunter spawns to draw from
+        List<Transform> availableHunterSpawns = new List<Transform>(hunterSpawnPoints);
 
-        if (!debugSinglePlayer && connectedDevices.Count > 1)
+        for (int i = 0; i < connectedDevices.Count; i++)
         {
-            hunterInput.deviceID = connectedDevices[1];
-        }
-        activePlayers.Add(hunter);
+            if (i == 0)
+            {
+                // Player 0 (Snitch) ALWAYS goes to the dedicated middle spot
+                GameObject snitch = Instantiate(snitchPrefab, snitchSpawnPoint.position, Quaternion.identity);
+                snitch.GetComponent<InputSystemManager>().deviceID = connectedDevices[i];
+                activePlayers.Add(snitch);
+                camTargets.Add(snitch.transform);
+            }
+            else
+            {
+                // Safety fallback just in case you forget to assign hunter spawn points in the editor
+                Transform chosenSpawn = snitchSpawnPoint;
 
+                // Draw a random, unique spawn point for this Hunter
+                if (availableHunterSpawns.Count > 0)
+                {
+                    int randomIndex = Random.Range(0, availableHunterSpawns.Count);
+                    chosenSpawn = availableHunterSpawns[randomIndex];
+
+                    // Remove it from the list so the next Hunter can't spawn here
+                    availableHunterSpawns.RemoveAt(randomIndex);
+                }
+
+                GameObject hunter = Instantiate(hunterPrefab, chosenSpawn.position, Quaternion.identity);
+                hunter.GetComponent<InputSystemManager>().deviceID = connectedDevices[i];
+                activePlayers.Add(hunter);
+                camTargets.Add(hunter.transform);
+            }
+        }
+
+        // Update the dynamic camera with all spawned players
         DynamicCamera cam = FindAnyObjectByType<DynamicCamera>();
         if (cam != null)
         {
-            cam.targets = new List<Transform> { snitch.transform, hunter.transform };
+            cam.targets = camTargets;
             cam.SnapToTargets();
         }
     }
@@ -264,12 +303,16 @@ public class GameManager : MonoBehaviour
     private IEnumerator ResetRoundRoutine()
     {
         yield return new WaitForSeconds(2f);
+
+        // SWAP MECHANIC: Rotate the array. 
+        // The old Snitch goes to the end, Hunter 1 becomes the new Snitch.
         if (connectedDevices.Count >= 2)
         {
-            int temp = connectedDevices[0];
-            connectedDevices[0] = connectedDevices[1];
-            connectedDevices[1] = temp;
+            int oldSnitch = connectedDevices[0];
+            connectedDevices.RemoveAt(0);
+            connectedDevices.Add(oldSnitch);
         }
+
         StartCoroutine(StartCountdownRoutine());
     }
 

@@ -12,12 +12,13 @@ public class DynamicCamera : MonoBehaviour
     [SerializeField] private Vector3 moveVelocity;
 
     [Header("Zooming Bounds")]
-    [SerializeField] private float minZoom = 40f;
-    [SerializeField] private float maxZoom = 85f;
-    [SerializeField] private float zoomLimiter = 40f;
+    // Adjusted defaults for a typical perspective camera
+    [SerializeField] private float minZoom = 40f;  // The closest it will zoom in
+    [SerializeField] private float maxZoom = 85f;  // The furthest it will pull back
+    [SerializeField] private float zoomLimiter = 40f; // The distance where it hits maxZoom
 
     [Header("Zoom Speed")]
-    [SerializeField] private float zoomSmoothTime = 0.5f;
+    [SerializeField] private float zoomSmoothTime = 0.5f; // Matches movement smoothTime
     [SerializeField] private float zoomVelocity;
 
     private Camera cam;
@@ -29,7 +30,10 @@ public class DynamicCamera : MonoBehaviour
 
     void LateUpdate()
     {
+        // This is the magic line. It instantly removes any "Empty" slots 
+        // or destroyed players from the list before doing any math.
         targets.RemoveAll(t => t == null);
+
         if (targets.Count == 0) return;
 
         MoveCamera();
@@ -40,14 +44,18 @@ public class DynamicCamera : MonoBehaviour
     {
         Vector3 centerPoint = GetCenterPoint();
         Vector3 newPosition = centerPoint + offset;
+
         transform.position = Vector3.SmoothDamp(transform.position, newPosition, ref moveVelocity, smoothTime);
     }
 
     void ZoomCamera()
     {
         float greatestDistance = GetGreatestDistance();
+
+        // Calculate the target zoom based on distance
         float targetZoom = Mathf.Lerp(minZoom, maxZoom, greatestDistance / zoomLimiter);
 
+        // Apply using SmoothDamp instead of Lerp for responsive, snappy zooming
         if (cam.orthographic)
         {
             cam.orthographicSize = Mathf.SmoothDamp(cam.orthographicSize, targetZoom, ref zoomVelocity, zoomSmoothTime);
@@ -82,15 +90,17 @@ public class DynamicCamera : MonoBehaviour
 
         return Mathf.Max(bounds.size.x, bounds.size.z);
     }
-
+    // Teleports the camera instantly to the perfect starting position
     public void SnapToTargets()
     {
         targets.RemoveAll(t => t == null);
         if (targets.Count == 0) return;
 
+        // 1. Snap Position
         Vector3 centerPoint = GetCenterPoint();
         transform.position = centerPoint + offset;
 
+        // 2. Snap Zoom
         float greatestDistance = GetGreatestDistance();
         float targetZoom = Mathf.Lerp(minZoom, maxZoom, greatestDistance / zoomLimiter);
 
@@ -103,4 +113,5 @@ public class DynamicCamera : MonoBehaviour
             cam.fieldOfView = targetZoom;
         }
     }
+
 }

@@ -2,8 +2,9 @@ using UnityEngine;
 using NDream.AirConsole;
 using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
-using UnityEngine.InputSystem;
+using UnityEngine.InputSystem; // <-- Required for the New Input System
 
+// We create a clean container for each phone's data
 public class PlayerInputData
 {
     public float MoveX;
@@ -19,6 +20,7 @@ public class InputManager : MonoBehaviour
     [Header("Offline Testing")]
     [SerializeField] private bool offlineKeyboard = false;
 
+    // The Dictionary mapping Phone ID -> Input Data
     private Dictionary<int, PlayerInputData> deviceInputs = new Dictionary<int, PlayerInputData>();
 
     void Awake()
@@ -41,13 +43,16 @@ public class InputManager : MonoBehaviour
         }
     }
 
+    // Called automatically whenever ANY phone sends a message
     void OnMessage(int fromDeviceID, JToken data)
     {
+        // If this is a new phone, create a data container for it
         if (!deviceInputs.ContainsKey(fromDeviceID))
         {
             deviceInputs[fromDeviceID] = new PlayerInputData();
         }
 
+        // Parse and store the data FOR THIS SPECIFIC PHONE
         if (data["x"] != null) deviceInputs[fromDeviceID].MoveX = (float)data["x"];
         if (data["y"] != null) deviceInputs[fromDeviceID].MoveY = (float)data["y"];
         if (data["z"] != null) deviceInputs[fromDeviceID].MoveZ = (float)data["z"];
@@ -66,14 +71,18 @@ public class InputManager : MonoBehaviour
         }
     }
 
+
     public PlayerInputData GetInputForDevice(int deviceID)
     {
+        // --- OFFLINE INJECTION (NEW INPUT SYSTEM) ---
         if (offlineKeyboard)
         {
             var kb = Keyboard.current;
 
+            // Safety check in case no keyboard is detected by Unity
             if (kb != null)
             {
+                // Player 1 (Snitch) -> STRICTLY WASD, Q/E for Y-axis, Spacebar for Dash
                 if (deviceID == 0)
                 {
                     float wasdX = (kb.dKey.isPressed ? 1 : 0) - (kb.aKey.isPressed ? 1 : 0);
@@ -89,6 +98,7 @@ public class InputManager : MonoBehaviour
                     };
                 }
 
+                // Player 2 (Hunter) -> Arrow Keys, RightShift/Ctrl for Y-axis, Enter for Dash
                 if (deviceID == 1)
                 {
                     float arrowX = (kb.rightArrowKey.isPressed ? 1 : 0) - (kb.leftArrowKey.isPressed ? 1 : 0);
@@ -106,6 +116,7 @@ public class InputManager : MonoBehaviour
             }
         }
 
+        // --- 2. NORMAL AIRCONSOLE BEHAVIOR ---
         if (deviceInputs.ContainsKey(deviceID))
         {
             return deviceInputs[deviceID];
@@ -115,6 +126,7 @@ public class InputManager : MonoBehaviour
 
     void Update()
     {
+        // Reset all dash flags at the end of the frame (like GetButtonDown)
         foreach (var input in deviceInputs.Values)
         {
             if (input.IsDashing) input.IsDashing = false;

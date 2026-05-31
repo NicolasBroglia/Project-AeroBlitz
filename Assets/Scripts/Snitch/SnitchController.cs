@@ -7,7 +7,7 @@ public class SnitchController : MonoBehaviour
     {
         Idle,
         Fleeing,
-        Clashing,
+        Clashing,   // <--- NEW: Paralizado mientras ocurre el minijuego
         Captured
     }
 
@@ -52,11 +52,17 @@ public class SnitchController : MonoBehaviour
         switch (currentState)
         {
             case SnitchState.Idle:
-            case SnitchState.Fleeing:
+                // We do absolutely nothing here now.
+                // We wait for the GameManager to explicitly change our state.
                 break;
 
-            case SnitchState.Clashing:
+            case SnitchState.Fleeing:
+                // La lógica de movimiento ocurre en FixedUpdate
+                break;
+
+            case SnitchState.Clashing: // <--- NUEVO
             case SnitchState.Captured:
+                // Frenamos la bola en seco para el impacto y el minijuego
                 rb.linearVelocity = Vector3.zero;
                 rb.angularVelocity = Vector3.zero;
                 break;

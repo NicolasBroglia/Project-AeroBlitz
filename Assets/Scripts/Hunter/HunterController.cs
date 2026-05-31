@@ -8,7 +8,7 @@ public class HunterController : MonoBehaviour
         Idle,
         Chasing,
         Stunned,
-        Clashing,
+        Clashing,         // <--- NEW: Paralizado mientras ocurre el minijuego
         CapturedSnitch
     }
 
@@ -23,6 +23,7 @@ public class HunterController : MonoBehaviour
     [Header("Movement Settings")]
     [SerializeField] private float moveSpeed = 50f;
     [SerializeField] private float maxSpeed = 18f;
+    [Tooltip("Qué tan rápido gira el cazador para mirar hacia su dirección")]
     [SerializeField] private float rotationSpeed = 12f;
 
     [Header("Flight Boundaries")]
@@ -59,15 +60,21 @@ public class HunterController : MonoBehaviour
         switch (currentState)
         {
             case HunterState.Idle:
+                // We do absolutely nothing here now.
+                // We wait for the GameManager to explicitly change our state.
+                break;
+
             case HunterState.Chasing:
+                // Lógica delegada al FixedUpdate
                 break;
 
             case HunterState.Stunned:
                 rb.linearVelocity = Vector3.Lerp(rb.linearVelocity, Vector3.zero, Time.deltaTime * 5f);
                 break;
 
-            case HunterState.Clashing:
+            case HunterState.Clashing: // <--- NUEVO
             case HunterState.CapturedSnitch:
+                // Freno total al entrar en el choque o ganar
                 rb.linearVelocity = Vector3.zero;
                 rb.angularVelocity = Vector3.zero;
                 break;
@@ -120,6 +127,7 @@ public class HunterController : MonoBehaviour
         currentState = newState;
     }
 
+    // --- NUEVO: Usado por el GameManager si la Snitch gana el minijuego ---
     public void ApplyKnockbackFrom(Vector3 sourcePosition)
     {
         ChangeState(HunterState.Stunned);
@@ -130,9 +138,12 @@ public class HunterController : MonoBehaviour
 
     private void HandleHunterCollision(Collision collision)
     {
+        Debug.Log("¡Choque entre cazadores!");
         ChangeState(HunterState.Stunned);
+
         Vector3 bounceDirection = (transform.position - collision.transform.position).normalized;
         rb.AddForce(bounceDirection * 10f, ForceMode.Impulse);
+
         StartCoroutine(StunRecoveryRoutine());
     }
 
@@ -149,16 +160,19 @@ public class HunterController : MonoBehaviour
     {
         if (currentState != HunterState.Chasing) return;
 
+        // --- 1. HUNTER VS SNITCH (Inicia el Clash Minijuego) ---
         if (collision.gameObject.CompareTag("Snitch"))
         {
             SnitchController snitch = collision.gameObject.GetComponent<SnitchController>();
             if (snitch != null && GameManager.Instance != null)
             {
+                // En vez de ganar automático, disparamos el evento al GameManager
                 GameManager.Instance.StartClash(this, snitch);
             }
             return;
         }
 
+        // --- 2. HUNTER VS HUNTER (Stun) ---
         if (collision.gameObject.CompareTag("Hunter"))
         {
             HandleHunterCollision(collision);

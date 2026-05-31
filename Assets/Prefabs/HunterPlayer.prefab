@@ -309,6 +309,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DepthIndicator
   shadowPrefab: {fileID: 7736886328241760671, guid: 627391bf45bfbca4294f497f329ddbbb, type: 3}
+  showTetherLine: 0
 --- !u!120 &7397904432980778400
 LineRenderer:
   serializedVersion: 3

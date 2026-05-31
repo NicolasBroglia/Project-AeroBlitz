@@ -8,7 +8,7 @@ public class HunterController : MonoBehaviour
         Idle,
         Chasing,
         Stunned,
-        Clashing,         // <--- NEW: Paralizado mientras ocurre el minijuego
+        Clashing,
         CapturedSnitch
     }
 
@@ -16,15 +16,22 @@ public class HunterController : MonoBehaviour
     public HunterState currentState = HunterState.Idle;
 
     [Header("References")]
-    [Tooltip("Cada cazador debe tener su propio InputManager asignado")]
     [SerializeField] private InputSystemManager inputManager;
     private Rigidbody rb;
 
     [Header("Movement Settings")]
     [SerializeField] private float moveSpeed = 50f;
     [SerializeField] private float maxSpeed = 18f;
-    [Tooltip("Qué tan rápido gira el cazador para mirar hacia su dirección")]
     [SerializeField] private float rotationSpeed = 12f;
+
+    [Header("Dash Settings")]
+    [SerializeField] private float dashForce = 35f;
+    [SerializeField] private float dashCooldown = 3f;
+    [Tooltip("How long the dash ignores the maxSpeed clamp (in seconds)")]
+    [SerializeField] private float dashDuration = 0.25f;
+
+    private float dashCooldownTimer = 0f;
+    private float activeDashTimer = 0f;
 
     [Header("Flight Boundaries")]
     [SerializeField] private float minHeight = 0.5f;
@@ -37,12 +44,26 @@ public class HunterController : MonoBehaviour
         rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
         rb.useGravity = false;
         inputManager = GetComponent<InputSystemManager>();
+
         ChangeState(HunterState.Idle);
     }
 
     private void Update()
     {
         ManageStateMachine();
+
+        // Handle Dash Timers
+        if (dashCooldownTimer > 0) dashCooldownTimer -= Time.deltaTime;
+        if (activeDashTimer > 0) activeDashTimer -= Time.deltaTime;
+
+        // Check for Dash Input
+        if (currentState == HunterState.Chasing)
+        {
+            if (inputManager.GetDash() && dashCooldownTimer <= 0f)
+            {
+                PerformDash();
+            }
+        }
     }
 
     private void FixedUpdate()
@@ -60,25 +81,39 @@ public class HunterController : MonoBehaviour
         switch (currentState)
         {
             case HunterState.Idle:
-                // We do absolutely nothing here now.
-                // We wait for the GameManager to explicitly change our state.
-                break;
-
             case HunterState.Chasing:
-                // Lógica delegada al FixedUpdate
                 break;
 
             case HunterState.Stunned:
                 rb.linearVelocity = Vector3.Lerp(rb.linearVelocity, Vector3.zero, Time.deltaTime * 5f);
                 break;
 
-            case HunterState.Clashing: // <--- NUEVO
+            case HunterState.Clashing:
             case HunterState.CapturedSnitch:
-                // Freno total al entrar en el choque o ganar
                 rb.linearVelocity = Vector3.zero;
                 rb.angularVelocity = Vector3.zero;
                 break;
         }
+    }
+
+    private void PerformDash()
+    {
+        dashCooldownTimer = dashCooldown;
+        activeDashTimer = dashDuration;
+
+        Vector2 planeInput = inputManager.GetMovement();
+        float elevationInput = inputManager.GetElevation();
+        Vector3 dashDir = new Vector3(planeInput.x, elevationInput, planeInput.y).normalized;
+
+        // If the player isn't touching the joystick, dash in the direction they are currently moving/facing
+        if (dashDir == Vector3.zero)
+        {
+            dashDir = rb.linearVelocity.sqrMagnitude > 0.1f ? rb.linearVelocity.normalized : transform.forward;
+        }
+
+        // Wipe current velocity so the dash is explosive and doesn't compound awkwardly
+        rb.linearVelocity = Vector3.zero;
+        rb.AddForce(dashDir * dashForce, ForceMode.Impulse);
     }
 
     private void HandleMovement()
@@ -89,9 +124,13 @@ public class HunterController : MonoBehaviour
 
         rb.AddForce(moveDirection * moveSpeed, ForceMode.Acceleration);
 
-        if (rb.linearVelocity.magnitude > maxSpeed)
+        // ONLY clamp the speed if we are NOT currently in the middle of a dash
+        if (activeDashTimer <= 0f)
         {
-            rb.linearVelocity = rb.linearVelocity.normalized * maxSpeed;
+            if (rb.linearVelocity.magnitude > maxSpeed)
+            {
+                rb.linearVelocity = rb.linearVelocity.normalized * maxSpeed;
+            }
         }
     }
 
@@ -112,6 +151,7 @@ public class HunterController : MonoBehaviour
         if (rb.position.y != clampedPosition.y)
         {
             rb.position = clampedPosition;
+            // Kill vertical momentum so they don't bounce against the ceiling/floor
             rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
         }
     }
@@ -121,7 +161,6 @@ public class HunterController : MonoBehaviour
         currentState = newState;
     }
 
-    // --- NUEVO: Usado por el GameManager si la Snitch gana el minijuego ---
     public void ApplyKnockbackFrom(Vector3 sourcePosition)
     {
         ChangeState(HunterState.Stunned);
@@ -132,12 +171,9 @@ public class HunterController : MonoBehaviour
 
     private void HandleHunterCollision(Collision collision)
     {
-        Debug.Log("¡Choque entre cazadores!");
         ChangeState(HunterState.Stunned);
-
         Vector3 bounceDirection = (transform.position - collision.transform.position).normalized;
         rb.AddForce(bounceDirection * 10f, ForceMode.Impulse);
-
         StartCoroutine(StunRecoveryRoutine());
     }
 
@@ -154,19 +190,16 @@ public class HunterController : MonoBehaviour
     {
         if (currentState != HunterState.Chasing) return;
 
-        // --- 1. HUNTER VS SNITCH (Inicia el Clash Minijuego) ---
         if (collision.gameObject.CompareTag("Snitch"))
         {
             SnitchController snitch = collision.gameObject.GetComponent<SnitchController>();
             if (snitch != null && GameManager.Instance != null)
             {
-                // En vez de ganar automático, disparamos el evento al GameManager
                 GameManager.Instance.StartClash(this, snitch);
             }
             return;
         }
 
-        // --- 2. HUNTER VS HUNTER (Stun) ---
         if (collision.gameObject.CompareTag("Hunter"))
         {
             HandleHunterCollision(collision);

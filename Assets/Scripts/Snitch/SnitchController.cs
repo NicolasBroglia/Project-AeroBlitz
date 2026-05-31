@@ -7,7 +7,7 @@ public class SnitchController : MonoBehaviour
     {
         Idle,
         Fleeing,
-        Clashing,   // <--- NEW: Paralizado mientras ocurre el minijuego
+        Clashing,
         Captured
     }
 
@@ -21,6 +21,17 @@ public class SnitchController : MonoBehaviour
     [Header("Movement Settings")]
     [SerializeField] private float moveSpeed = 40f;
     [SerializeField] private float maxSpeed = 15f;
+
+    [Header("Dash Settings")]
+    [SerializeField] private float dashForce = 25f;
+    [SerializeField] private float dashCooldown = 1.5f;
+    [Tooltip("How long the dash ignores the maxSpeed clamp (in seconds)")]
+    [SerializeField] private float dashDuration = 0.2f;
+
+    private float dashCooldownTimer = 0f;
+    private float activeDashTimer = 0f;
+
+    [Header("Flight Boundaries")]
     [SerializeField] private float maxHeight = 4f;
     [SerializeField] private float minHeight = 0.5f;
 
@@ -31,12 +42,26 @@ public class SnitchController : MonoBehaviour
         rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
         rb.useGravity = false;
         inputManager = GetComponent<InputSystemManager>();
+
         ChangeState(SnitchState.Idle);
     }
 
     private void Update()
     {
         ManageStateMachine();
+
+        // Handle Dash Timers
+        if (dashCooldownTimer > 0) dashCooldownTimer -= Time.deltaTime;
+        if (activeDashTimer > 0) activeDashTimer -= Time.deltaTime;
+
+        // Check for Dash Input
+        if (currentState == SnitchState.Fleeing)
+        {
+            if (inputManager.GetDash() && dashCooldownTimer <= 0f)
+            {
+                PerformDash();
+            }
+        }
     }
 
     private void FixedUpdate()
@@ -44,6 +69,7 @@ public class SnitchController : MonoBehaviour
         if (currentState == SnitchState.Fleeing)
         {
             HandleMovement();
+            ApplyHeightClamp();
         }
     }
 
@@ -52,21 +78,35 @@ public class SnitchController : MonoBehaviour
         switch (currentState)
         {
             case SnitchState.Idle:
-                // We do absolutely nothing here now.
-                // We wait for the GameManager to explicitly change our state.
-                break;
-
             case SnitchState.Fleeing:
-                // La lógica de movimiento ocurre en FixedUpdate
                 break;
 
-            case SnitchState.Clashing: // <--- NUEVO
+            case SnitchState.Clashing:
             case SnitchState.Captured:
-                // Frenamos la bola en seco para el impacto y el minijuego
                 rb.linearVelocity = Vector3.zero;
                 rb.angularVelocity = Vector3.zero;
                 break;
         }
+    }
+
+    private void PerformDash()
+    {
+        dashCooldownTimer = dashCooldown;
+        activeDashTimer = dashDuration;
+
+        Vector2 planeInput = inputManager.GetMovement();
+        float elevationInput = inputManager.GetElevation();
+        Vector3 dashDir = new Vector3(planeInput.x, elevationInput, planeInput.y).normalized;
+
+        // If no input, dash in the direction of current momentum
+        if (dashDir == Vector3.zero)
+        {
+            dashDir = rb.linearVelocity.sqrMagnitude > 0.1f ? rb.linearVelocity.normalized : transform.forward;
+        }
+
+        // Wipe current velocity so the dash is explosive
+        rb.linearVelocity = Vector3.zero;
+        rb.AddForce(dashDir * dashForce, ForceMode.Impulse);
     }
 
     private void HandleMovement()
@@ -77,17 +117,25 @@ public class SnitchController : MonoBehaviour
 
         rb.AddForce(moveDirection * moveSpeed, ForceMode.Acceleration);
 
-        if (rb.linearVelocity.magnitude > maxSpeed)
+        // ONLY clamp the speed if we are NOT currently in the middle of a dash
+        if (activeDashTimer <= 0f)
         {
-            rb.linearVelocity = rb.linearVelocity.normalized * maxSpeed;
+            if (rb.linearVelocity.magnitude > maxSpeed)
+            {
+                rb.linearVelocity = rb.linearVelocity.normalized * maxSpeed;
+            }
         }
+    }
 
-        Vector3 clampedPosition = transform.position;
+    private void ApplyHeightClamp()
+    {
+        Vector3 clampedPosition = rb.position;
         clampedPosition.y = Mathf.Clamp(clampedPosition.y, minHeight, maxHeight);
 
-        if (transform.position.y != clampedPosition.y)
+        if (rb.position.y != clampedPosition.y)
         {
             rb.position = clampedPosition;
+            // Kill vertical momentum so they don't bounce against the ceiling/floor
             rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
         }
     }

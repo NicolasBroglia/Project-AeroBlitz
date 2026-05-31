@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using NDream.AirConsole;
@@ -8,7 +8,7 @@ public enum GameState
     Lobby,
     Countdown,
     ActiveMatch,
-    Clash,          // <--- NEW: Pauses timer and movement for the Minigame
+    Clash,
     PostTag,
     MatchOver
 }
@@ -40,12 +40,24 @@ public class GameManager : MonoBehaviour
     [SerializeField] private bool offlineMode = false;
     [SerializeField][Range(2, 8)] private int offlinePlayerCount = 3;
 
+    [Tooltip("Uncheck to hide the OnGUI dashboard so it doesn't block the real UI")]
+    [SerializeField] private bool showDebugGUI = true;
+
     [SerializeField] private List<int> connectedDevices = new List<int>();
     [SerializeField] private List<GameObject> activePlayers = new List<GameObject>();
 
     // Temporarily holds the players during the minigame
     [SerializeField] private HunterController clashingHunter;
     [SerializeField] private SnitchController clashingSnitch;
+
+    [Header("Player Colors")]
+    [SerializeField]
+    private Color[] availableColors = new Color[]
+    {
+        Color.red, Color.cyan, Color.yellow, Color.magenta, new Color(1f, 0.5f, 0f) /* Orange */ 
+    };
+    private Dictionary<int, Color> deviceColors = new Dictionary<int, Color>();
+    private int nextColorIndex = 0;
 
     void Awake() { if (Instance == null) Instance = this; }
 
@@ -72,17 +84,38 @@ public class GameManager : MonoBehaviour
             for (int i = 0; i < offlinePlayerCount; i++)
             {
                 connectedDevices.Add(i);
+
+                // --- ADD THIS: Assign colors to offline bots ---
+                deviceColors[i] = availableColors[nextColorIndex % availableColors.Length];
+                nextColorIndex++;
             }
             StartMatchInit();
         }
         else ChangeState(GameState.Lobby);
     }
 
+    [ContextMenu("DEBUG: Force Hunter Tag Win")]
+    public void DebugForceTag()
+    {
+        if (CurrentState == GameState.ActiveMatch)
+        {
+            Debug.Log("<color=yellow>DEBUG: Forcing a Tag!</color>");
+            OnPlayerTagged();
+        }
+    }
     void OnDeviceConnect(int deviceId)
     {
         if (!connectedDevices.Contains(deviceId))
         {
             connectedDevices.Add(deviceId);
+
+            // --- Assign a permanent color to this device ---
+            if (!deviceColors.ContainsKey(deviceId))
+            {
+                deviceColors[deviceId] = availableColors[nextColorIndex % availableColors.Length];
+                nextColorIndex++;
+            }
+            // ----------------------------------------------------
 
             int requiredPlayers = debugSinglePlayer ? 1 : 2;
 
@@ -91,7 +124,6 @@ public class GameManager : MonoBehaviour
             {
                 StartMatchInit();
             }
-
             else if (CurrentState == GameState.ActiveMatch || CurrentState == GameState.Countdown)
             {
                 SpawnPlayers();
@@ -99,6 +131,12 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    [ContextMenu("DEBUG: Simulate New Phone Connecting")]
+    public void DebugConnectPhone()
+    {
+        // Generates a random fake device ID
+        OnDeviceConnect(Random.Range(100, 999));
+    }
     void OnDeviceDisconnect(int deviceId)
     {
         connectedDevices.Remove(deviceId);
@@ -155,7 +193,7 @@ public class GameManager : MonoBehaviour
         clashingSnitch.ChangeState(SnitchController.SnitchState.Clashing);
 
         Debug.Log("--- CLASH STARTED! ---");
-        // TODO: En el futuro, ac� instanci�s el UI del Minijuego (Tug of War o Timing QTE)
+        // TODO: En el futuro, acá instanciás el UI del Minijuego (Tug of War o Timing QTE)
 
         // TEMPORARY STUB: We will just auto-resolve it after 1 second for now
         // Delete this Invoke when you build the real UI!
@@ -259,7 +297,9 @@ public class GameManager : MonoBehaviour
                 GameObject snitch = Instantiate(snitchPrefab, snitchSpawnPoint.position, Quaternion.identity);
                 snitch.GetComponent<InputSystemManager>().deviceID = connectedDevices[i];
                 activePlayers.Add(snitch);
+                ApplyColorToPlayer(snitch, connectedDevices[i]);
                 camTargets.Add(snitch.transform);
+
             }
             else
             {
@@ -278,6 +318,7 @@ public class GameManager : MonoBehaviour
 
                 GameObject hunter = Instantiate(hunterPrefab, chosenSpawn.position, Quaternion.identity);
                 hunter.GetComponent<InputSystemManager>().deviceID = connectedDevices[i];
+                ApplyColorToPlayer(hunter, connectedDevices[i]);
                 activePlayers.Add(hunter);
                 camTargets.Add(hunter.transform);
             }
@@ -289,6 +330,19 @@ public class GameManager : MonoBehaviour
         {
             cam.targets = camTargets;
             cam.SnapToTargets();
+        }
+    }
+    private void ApplyColorToPlayer(GameObject player, int deviceID)
+    {
+        if (deviceColors.TryGetValue(deviceID, out Color assignedColor))
+        {
+            // GetComponentsInChildren handles cases where your 3D mesh is on a child object
+            Renderer[] renderers = player.GetComponentsInChildren<Renderer>();
+            foreach (Renderer rend in renderers)
+            {
+                // This automatically creates a material instance, so it won't permanently alter your project assets
+                rend.material.color = assignedColor;
+            }
         }
     }
 
@@ -346,6 +400,37 @@ public class GameManager : MonoBehaviour
             StartMatchInit();
         }
     }
+
+#if UNITY_EDITOR
+    private void OnGUI()
+    {
+        // If we aren't playing, OR if you unchecked the box, do nothing.
+        if (!Application.isPlaying || !showDebugGUI) return;
+
+        GUILayout.BeginArea(new Rect(10, 10, 350, 400), GUI.skin.box);
+        GUILayout.Label($"<b>MATCH STATE:</b> {CurrentState}");
+        GUILayout.Label($"<b>TIMER:</b> {currentMatchTimer:F1}s");
+        GUILayout.Label($"<b>CONNECTED DEVICES:</b> {connectedDevices.Count}");
+
+        GUILayout.Space(10);
+        GUILayout.Label("<b>--- PLAYER ROLES & SCORES ---</b>");
+
+        if (connectedDevices.Count > 0)
+        {
+            int snitchID = connectedDevices[0];
+            Color sColor = deviceColors.TryGetValue(snitchID, out var sc) ? sc : Color.white;
+            GUILayout.Label($"<color=#{ColorUtility.ToHtmlStringRGB(sColor)}>▶ DEVICE {snitchID} [SNITCH]</color> - Score: {GetPlayerScore(snitchID):F1}s");
+
+            for (int i = 1; i < connectedDevices.Count; i++)
+            {
+                int hunterID = connectedDevices[i];
+                Color hColor = deviceColors.TryGetValue(hunterID, out var hc) ? hc : Color.white;
+                GUILayout.Label($"<color=#{ColorUtility.ToHtmlStringRGB(hColor)}>▷ DEVICE {hunterID} [HUNTER]</color> - Score: {GetPlayerScore(hunterID):F1}s");
+            }
+        }
+        GUILayout.EndArea();
+    }
+#endif
 
     public float GetTimeRemaining() { return currentMatchTimer; }
     public int GetConnectedPlayerCount() { return connectedDevices.Count; }

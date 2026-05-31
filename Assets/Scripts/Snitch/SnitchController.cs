@@ -144,4 +144,21 @@ public class SnitchController : MonoBehaviour
     {
         currentState = newState;
     }
+#if UNITY_EDITOR
+    private void OnDrawGizmos()
+    {
+        if (!Application.isPlaying || inputManager == null) return;
+
+        GUIStyle style = new GUIStyle();
+        style.normal.textColor = gameObject.CompareTag("Snitch") ? Color.green : Color.red;
+        style.fontStyle = FontStyle.Bold;
+        style.alignment = TextAnchor.MiddleCenter;
+
+        string label = $"Device: {inputManager.deviceID}\nState: {currentState}";
+
+        // Draws the text 2.5 units above the player's head in the Scene View
+        UnityEditor.Handles.Label(transform.position + Vector3.up * 2.5f, label, style);
+    }
+#endif
+
 }

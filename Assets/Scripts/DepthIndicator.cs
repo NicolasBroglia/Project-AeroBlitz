@@ -10,6 +10,9 @@ public class DepthIndicator : MonoBehaviour
     [Tooltip("If false, the connecting line will be invisible during gameplay.")]
     [SerializeField] private bool showTetherLine = false;
 
+    [Tooltip("Multiplier to make the shadow bigger or smaller for this specific character.")]
+    [SerializeField][Range(0.1f, 5f)] private float baseShadowScale = 1f;
+
     private LineRenderer tetherLine;
     private GameObject activeShadow;
     private Quaternion baseShadowRotation;
@@ -17,10 +20,7 @@ public class DepthIndicator : MonoBehaviour
     private void Awake()
     {
         tetherLine = GetComponent<LineRenderer>();
-
-        // Turn the line renderer component on or off based on your setting
         tetherLine.enabled = showTetherLine;
-
         tetherLine.positionCount = 2;
         tetherLine.startWidth = 0.05f;
         tetherLine.endWidth = 0.05f;
@@ -41,7 +41,6 @@ public class DepthIndicator : MonoBehaviour
         Vector3 playerPos = transform.position;
         Vector3 floorPos = playerPos;
 
-        // Start the laser slightly below the player so they don't hit their own collider
         Vector3 rayOrigin = playerPos + (Vector3.down * 0.5f);
 
         if (Physics.Raycast(rayOrigin, Vector3.down, out RaycastHit hit, 100f))
@@ -50,21 +49,17 @@ public class DepthIndicator : MonoBehaviour
         }
         else
         {
-            // Fallback just in case they manage to fly completely off the map
             floorPos = new Vector3(playerPos.x, -10f, playerPos.z);
         }
 
-        // Only calculate the line math if we actually want to see the line
         if (showTetherLine)
         {
             tetherLine.SetPosition(0, playerPos);
             tetherLine.SetPosition(1, floorPos);
         }
 
-        // Manage the Shadow
         if (activeShadow != null)
         {
-            // Place shadow slightly above the floor to prevent Z-fighting
             activeShadow.transform.position = floorPos + (Vector3.up * 0.02f);
 
             if (hit.collider != null)
@@ -72,16 +67,18 @@ public class DepthIndicator : MonoBehaviour
                 activeShadow.transform.rotation = Quaternion.FromToRotation(Vector3.up, hit.normal) * baseShadowRotation;
             }
 
-            // Shrink the shadow the higher the player flies
+            // Calculate the altitude shrink effect, then multiply it by your custom Inspector scale!
             float altitude = playerPos.y - floorPos.y;
-            float scale = Mathf.Clamp(1f - (altitude * 0.15f), 0.3f, 1f);
-            activeShadow.transform.localScale = new Vector3(scale, scale, scale);
+            float baseCalculation = Mathf.Clamp(1f - (altitude * 0.15f), 0.3f, 1f);
+
+            float finalScale = baseCalculation * baseShadowScale; // <--- APPLIED HERE
+
+            activeShadow.transform.localScale = new Vector3(finalScale, finalScale, finalScale);
         }
     }
 
     private void OnDestroy()
     {
-        // Prevent orphaned shadows floating around if the player gets deleted
         if (activeShadow != null) Destroy(activeShadow);
     }
 }

@@ -20,11 +20,9 @@ public class UIManager : MonoBehaviour
     [Tooltip("Texto para el tiempo restante del minijuego de mashear")]
     [SerializeField] private TextMeshProUGUI clashTimerText;
 
-
-    //nico
     [Header("Lobby Settings")]
     [SerializeField] private GameObject lobbyPanel; // We will create this in the Unity Editor
-    //
+    [SerializeField] private GameObject offlineStartButton;    
 
     void Awake()
     {
@@ -145,9 +143,10 @@ public class UIManager : MonoBehaviour
     }
 
     //nico
-    public void ShowLobby()
+    public void ShowLobby(bool isOffline)
     {
         if (lobbyPanel != null) lobbyPanel.SetActive(true);
+        if (offlineStartButton != null) offlineStartButton.SetActive(isOffline);
     }
 
     public void HideLobby()

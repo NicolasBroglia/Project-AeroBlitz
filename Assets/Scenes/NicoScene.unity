@@ -715,6 +715,7 @@ MonoBehaviour:
   notificationText: {fileID: 339960175}
   clashTimerText: {fileID: 1709048992}
   lobbyPanel: {fileID: 902670949}
+  offlineStartButton: {fileID: 2084124888}
 --- !u!4 &335277892
 Transform:
   m_ObjectHideFlags: 0

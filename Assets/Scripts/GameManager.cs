@@ -107,7 +107,7 @@ public class GameManager : MonoBehaviour
 
         // ALWAYS start in the Lobby, waiting for the Start Match button, 
         // regardless of whether we are online or offline
-        UIManager.Instance.ShowLobby();
+        UIManager.Instance.ShowLobby(offlineMode);
         ChangeState(GameState.Lobby);
     }
 

@@ -3,6 +3,8 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody))]
 public class SnitchController : MonoBehaviour
 {
+    #region Enums & State
+
     public enum SnitchState
     {
         Idle,
@@ -13,6 +15,10 @@ public class SnitchController : MonoBehaviour
 
     [Header("State")]
     public SnitchState currentState = SnitchState.Idle;
+
+    #endregion
+
+    #region Variables & Settings
 
     [Header("References")]
     [SerializeField] private InputSystemManager inputManager;
@@ -35,12 +41,17 @@ public class SnitchController : MonoBehaviour
     [SerializeField] private float maxHeight = 4f;
     [SerializeField] private float minHeight = 0.5f;
 
+    #endregion
+
+    #region Unity Lifecycle
+
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
         rb.interpolation = RigidbodyInterpolation.Interpolate;
         rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
         rb.useGravity = false;
+
         inputManager = GetComponent<InputSystemManager>();
 
         ChangeState(SnitchState.Idle);
@@ -50,12 +61,13 @@ public class SnitchController : MonoBehaviour
     {
         ManageStateMachine();
 
-        // Handle Dash Timers
         if (dashCooldownTimer > 0) dashCooldownTimer -= Time.deltaTime;
         if (activeDashTimer > 0) activeDashTimer -= Time.deltaTime;
 
-        // Check for Dash Input
-        if (currentState == SnitchState.Fleeing)
+        // Allow actions in ActiveMatch AND Lobby
+        bool canPlay = GameManager.Instance.CurrentState == GameState.ActiveMatch || GameManager.Instance.CurrentState == GameState.Lobby;
+
+        if (currentState == SnitchState.Fleeing && canPlay)
         {
             if (inputManager.GetDash() && dashCooldownTimer <= 0f)
             {
@@ -68,9 +80,29 @@ public class SnitchController : MonoBehaviour
     {
         if (currentState == SnitchState.Fleeing)
         {
-            HandleMovement();
+            bool canPlay = GameManager.Instance.CurrentState == GameState.ActiveMatch || GameManager.Instance.CurrentState == GameState.Lobby;
+
+            if (canPlay)
+            {
+                HandleMovement();
+            }
+            else
+            {
+                // Drift to a stop during clashes and countdowns
+                rb.linearVelocity = Vector3.Lerp(rb.linearVelocity, Vector3.zero, Time.fixedDeltaTime * 5f);
+            }
+
             ApplyHeightClamp();
         }
+    }
+
+    #endregion
+
+    #region State Machine
+
+    public void ChangeState(SnitchState newState)
+    {
+        currentState = newState;
     }
 
     private void ManageStateMachine()
@@ -89,25 +121,9 @@ public class SnitchController : MonoBehaviour
         }
     }
 
-    private void PerformDash()
-    {
-        dashCooldownTimer = dashCooldown;
-        activeDashTimer = dashDuration;
+    #endregion
 
-        Vector2 planeInput = inputManager.GetMovement();
-        float elevationInput = inputManager.GetElevation();
-        Vector3 dashDir = new Vector3(planeInput.x, elevationInput, planeInput.y).normalized;
-
-        // If no input, dash in the direction of current momentum
-        if (dashDir == Vector3.zero)
-        {
-            dashDir = rb.linearVelocity.sqrMagnitude > 0.1f ? rb.linearVelocity.normalized : transform.forward;
-        }
-
-        // Wipe current velocity so the dash is explosive
-        rb.linearVelocity = Vector3.zero;
-        rb.AddForce(dashDir * dashForce, ForceMode.Impulse);
-    }
+    #region Physics & Movement
 
     private void HandleMovement()
     {
@@ -140,10 +156,34 @@ public class SnitchController : MonoBehaviour
         }
     }
 
-    public void ChangeState(SnitchState newState)
+    #endregion
+
+    #region Dash Logic
+
+    private void PerformDash()
     {
-        currentState = newState;
+        dashCooldownTimer = dashCooldown;
+        activeDashTimer = dashDuration;
+
+        Vector2 planeInput = inputManager.GetMovement();
+        float elevationInput = inputManager.GetElevation();
+        Vector3 dashDir = new Vector3(planeInput.x, elevationInput, planeInput.y).normalized;
+
+        // If no input, dash in the direction of current momentum
+        if (dashDir == Vector3.zero)
+        {
+            dashDir = rb.linearVelocity.sqrMagnitude > 0.1f ? rb.linearVelocity.normalized : transform.forward;
+        }
+
+        // Wipe current velocity so the dash is explosive
+        rb.linearVelocity = Vector3.zero;
+        rb.AddForce(dashDir * dashForce, ForceMode.Impulse);
     }
+
+    #endregion
+
+    #region Editor Debug
+
 #if UNITY_EDITOR
     private void OnDrawGizmos()
     {
@@ -161,4 +201,5 @@ public class SnitchController : MonoBehaviour
     }
 #endif
 
+    #endregion
 }

@@ -2,8 +2,14 @@ using UnityEngine;
 
 public class InputSystemManager : MonoBehaviour
 {
+    #region Settings
+
     [Header("AirConsole Link")]
     public int deviceID = -1;
+
+    #endregion
+
+    #region Continuous Input (Axes)
 
     public Vector2 GetMovement()
     {
@@ -25,13 +31,27 @@ public class InputSystemManager : MonoBehaviour
         return 0f;
     }
 
+    #endregion
+
+    #region Action Triggers (Buttons)
+
     public bool GetDash()
     {
         if (InputManager.Instance != null && deviceID != -1)
         {
-            // Use the new Consume method instead of pulling the whole data object
             return InputManager.Instance.ConsumeDash(deviceID);
         }
         return false;
     }
+
+    public bool GetMash()
+    {
+        if (InputManager.Instance != null && deviceID != -1)
+        {
+            return InputManager.Instance.ConsumeMash(deviceID);
+        }
+        return false;
+    }
+
+    #endregion
 }

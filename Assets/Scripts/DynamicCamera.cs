@@ -4,6 +4,8 @@ using System.Collections.Generic;
 [RequireComponent(typeof(Camera))]
 public class DynamicCamera : MonoBehaviour
 {
+    #region Variables & Settings
+
     public List<Transform> targets = new List<Transform>();
 
     [Header("Isometric Settings")]
@@ -17,6 +19,7 @@ public class DynamicCamera : MonoBehaviour
     [Header("Orthographic Zooming")]
     [Tooltip("Orthographic size uses smaller numbers than FOV. Try 8 to 15 here.")]
     [SerializeField] private float minZoom = 10f;
+
     [Tooltip("The maximum size the camera can expand to. Try 20 to 35 here.")]
     [SerializeField] private float maxZoom = 25f;
 
@@ -28,16 +31,20 @@ public class DynamicCamera : MonoBehaviour
     private float zoomVelocity;
     private Camera cam;
 
-    void Awake()
+    #endregion
+
+    #region Unity Lifecycle
+
+    private void Awake()
     {
         cam = GetComponent<Camera>();
 
-        // --- 1. FORCE TRUE ISOMETRIC ---
+        // Force true Isometric orthographic projection
         cam.orthographic = true;
         transform.rotation = Quaternion.Euler(isometricRotation);
     }
 
-    void LateUpdate()
+    private void LateUpdate()
     {
         // Instantly scrub destroyed players
         targets.RemoveAll(t => t == null);
@@ -47,25 +54,43 @@ public class DynamicCamera : MonoBehaviour
         ZoomCamera();
     }
 
-    void MoveCamera()
+    #endregion
+
+    #region Camera Behavior
+
+    public void SnapToTargets()
+    {
+        targets.RemoveAll(t => t == null);
+        if (targets.Count == 0) return;
+
+        Vector3 centerPoint = GetCenterPoint();
+        transform.position = centerPoint + offset;
+
+        float requiredSize = GetRequiredOrthographicSize();
+        cam.orthographicSize = Mathf.Clamp(requiredSize, minZoom, maxZoom);
+    }
+
+    private void MoveCamera()
     {
         Vector3 centerPoint = GetCenterPoint();
         Vector3 newPosition = centerPoint + offset;
+
         transform.position = Vector3.SmoothDamp(transform.position, newPosition, ref moveVelocity, smoothTime);
     }
 
-    void ZoomCamera()
+    private void ZoomCamera()
     {
         float requiredSize = GetRequiredOrthographicSize();
-
-        // Clamp the size so it never zooms in too close or out too far
         float targetZoom = Mathf.Clamp(requiredSize, minZoom, maxZoom);
 
-        // Smoothly transition to the new size
         cam.orthographicSize = Mathf.SmoothDamp(cam.orthographicSize, targetZoom, ref zoomVelocity, zoomSmoothTime);
     }
 
-    Vector3 GetCenterPoint()
+    #endregion
+
+    #region Mathematical Calculations
+
+    private Vector3 GetCenterPoint()
     {
         if (targets.Count == 1) return targets[0].position;
 
@@ -77,7 +102,7 @@ public class DynamicCamera : MonoBehaviour
         return bounds.center;
     }
 
-    float GetRequiredOrthographicSize()
+    private float GetRequiredOrthographicSize()
     {
         if (targets.Count <= 1) return minZoom;
 
@@ -94,19 +119,8 @@ public class DynamicCamera : MonoBehaviour
         float sizeBasedOnWidth = (boundsSize / cam.aspect) * 0.5f;
         float sizeBasedOnHeight = boundsSize * 0.5f;
 
-        // Return the largest required size, plus our safety padding
         return Mathf.Max(sizeBasedOnWidth, sizeBasedOnHeight) + zoomPadding;
     }
 
-    public void SnapToTargets()
-    {
-        targets.RemoveAll(t => t == null);
-        if (targets.Count == 0) return;
-
-        Vector3 centerPoint = GetCenterPoint();
-        transform.position = centerPoint + offset;
-
-        float requiredSize = GetRequiredOrthographicSize();
-        cam.orthographicSize = Mathf.Clamp(requiredSize, minZoom, maxZoom);
-    }
+    #endregion
 }

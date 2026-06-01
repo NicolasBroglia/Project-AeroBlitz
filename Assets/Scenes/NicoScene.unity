@@ -749,20 +749,21 @@ MonoBehaviour:
   - {fileID: 919606139}
   - {fileID: 761642538}
   - {fileID: 1389513280}
-  debugSinglePlayer: 0
-  offlineMode: 0
-  offlinePlayerCount: 5
-  showDebugGUI: 1
-  connectedDevices: 
-  activePlayers: []
+  clashDuration: 2.5
   clashingHunter: {fileID: 0}
   clashingSnitch: {fileID: 0}
+  connectedDevices: 
+  activePlayers: []
   availableColors:
   - {r: 1, g: 0, b: 0, a: 1}
   - {r: 0, g: 1, b: 1, a: 1}
   - {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   - {r: 1, g: 0, b: 1, a: 1}
   - {r: 1, g: 0.5, b: 0, a: 1}
+  debugSinglePlayer: 0
+  offlineMode: 0
+  offlinePlayerCount: 5
+  showDebugGUI: 1
 --- !u!4 &581557785
 Transform:
   m_ObjectHideFlags: 0

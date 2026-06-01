@@ -3,6 +3,8 @@ using UnityEngine;
 [RequireComponent(typeof(Camera))]
 public class CameraCage : MonoBehaviour
 {
+    #region Variables & Settings
+
     [Header("Cage Settings")]
     [Tooltip("How tall the invisible walls are")]
     public float wallHeight = 50f;
@@ -16,11 +18,29 @@ public class CameraCage : MonoBehaviour
     // An invisible, infinite flat plane at Y=0 used for mathematical calculations
     private Plane groundPlane;
 
+    #endregion
+
+    #region Unity Lifecycle
+
     void Start()
     {
         cam = GetComponent<Camera>();
         groundPlane = new Plane(Vector3.up, Vector3.zero);
 
+        BuildPhysicsCage();
+    }
+
+    void LateUpdate()
+    {
+        UpdateCageTransform();
+    }
+
+    #endregion
+
+    #region Initialization
+
+    private void BuildPhysicsCage()
+    {
         // Build the 4 invisible physics walls when the game starts
         CreateEdgeWall(out leftWall, out leftCol, "CameraWall_Left");
         CreateEdgeWall(out rightWall, out rightCol, "CameraWall_Right");
@@ -31,6 +51,7 @@ public class CameraCage : MonoBehaviour
     private void CreateEdgeWall(out GameObject wallObj, out BoxCollider col, string name)
     {
         wallObj = new GameObject(name);
+
         // We leave them unparented in the root of the scene so their rotation math stays pure
         col = wallObj.AddComponent<BoxCollider>();
 
@@ -38,10 +59,15 @@ public class CameraCage : MonoBehaviour
         noFriction.dynamicFriction = 0f;
         noFriction.staticFriction = 0f;
         noFriction.frictionCombine = PhysicsMaterialCombine.Minimum;
+
         col.material = noFriction;
     }
 
-    void LateUpdate()
+    #endregion
+
+    #region Wall Updates & Math
+
+    private void UpdateCageTransform()
     {
         // 1. Calculate exactly where the 4 corners of the screen touch the floor
         Vector3 bottomLeft = GetFloorPoint(new Vector3(0, 0, 0));
@@ -82,4 +108,6 @@ public class CameraCage : MonoBehaviour
         float length = Vector3.Distance(p1, p2);
         col.size = new Vector3(wallThickness, wallHeight, length);
     }
+
+    #endregion
 }

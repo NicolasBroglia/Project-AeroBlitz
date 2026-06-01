@@ -1,207 +1,207 @@
 <html>
-	<head>
-		<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
-		<script src="https://www.airconsole.com/api/airconsole-1.10.0.js"></script>
-		<style type="text/css">
-			body {
-			background-color: #222;
-			margin: 0;
-			display: flex;
-			justify-content: space-between;
-			align-items: center;
-			height: 100vh;
-			font-family: sans-serif;
-			color: white;
-			user-select: none;
-			}
+<head>
+    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+    <script src="https://www.airconsole.com/api/airconsole-1.10.0.js"></script>
+    <style type="text/css">
+        /* --- LAYOUT & BASE STYLES --- */
+        body {
+            background-color: #222;
+            margin: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 100vh;
+            font-family: sans-serif;
+            color: white;
+            user-select: none;
+        }
 
-			.column {
-			width: 33.33vw;
-			height: 100vh;
-			display: flex;
-			justify-content: center;
-			align-items: center;
-			}
+        .column {
+            width: 33.33vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
 
-			#joystick-zone {
-			width: 140px;
-			height: 140px;
-			background: rgba(255, 255, 255, 0.1);
-			border-radius: 50%;
-			display: flex;
-			justify-content: center;
-			align-items: center;
-			position: relative;
-			}
+        /* --- JOYSTICK UI --- */
+        #joystick-zone {
+            width: 140px;
+            height: 140px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
 
-			#joystick-nub {
-			width: 60px;
-			height: 60px;
-			background-color: rgba(255, 255, 255, 0.6);
-			border-radius: 50%;
-			position: absolute;
-			pointer-events: none;
-			transition: transform 0.05s linear;
-			}
+        #joystick-nub {
+            width: 60px;
+            height: 60px;
+            background-color: rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            position: absolute;
+            pointer-events: none;
+            transition: transform 0.05s linear;
+        }
 
-			#dash-btn {
-			width: 110px;
-			height: 110px;
-			background-color: #e74c3c;
-			border: none;
-			border-radius: 50%;
-			color: white;
-			font-size: 22px;
-			font-weight: bold;
-			}
-			#dash-btn:active { background-color: #c0392b; }
+        /* --- BUTTON UI --- */
+        #dash-btn {
+            width: 110px;
+            height: 110px;
+            background-color: #e74c3c;
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 22px;
+            font-weight: bold;
+        }
 
-			#vertical-controls {
-			flex-direction: column;
-			justify-content: space-evenly;
-			}
+            #dash-btn:active {
+                background-color: #c0392b;
+            }
 
-			.y-btn {
-			width: 85%;
-			height: 42vh;
-			background-color: #3498db;
-			border: none;
-			border-radius: 15px;
-			color: white;
-			font-size: 24px;
-			font-weight: bold;
-			}
-			.y-btn:active { background-color: #2980b9; }
-		</style>
-		<script type="text/javascript">
-			var airconsole;
-			var currentX = 0;
-			var currentZ = 0;
-			var currentY = 0;
+        #vertical-controls {
+            flex-direction: column;
+            justify-content: space-evenly;
+        }
 
-			function App() {
-			airconsole = new AirConsole({ "orientation": "landscape" });
+        .y-btn {
+            width: 85%;
+            height: 42vh;
+            background-color: #3498db;
+            border: none;
+            border-radius: 15px;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+        }
 
-			var dashBtn = document.getElementById("dash-btn");
-			var upBtn = document.getElementById("up-btn");
-			var downBtn = document.getElementById("down-btn");
-			var joyZone = document.getElementById("joystick-zone");
-			var joyNub = document.getElementById("joystick-nub");
+            .y-btn:active {
+                background-color: #2980b9;
+            }
+    </style>
 
-			function calculateJoystickMath(clientX, clientY) {
-			var rect = joyZone.getBoundingClientRect();
-			var rawX = ((clientX - rect.left) / rect.width) * 2 - 1;
-			var rawZ = -(((clientY - rect.top) / rect.height) * 2 - 1);
+    <script type="text/javascript">
+        var airconsole;
+        var currentX = 0, currentY = 0, currentZ = 0;
+        var lastSentX = 0, lastSentY = 0, lastSentZ = 0; // Tracks what the server currently knows
 
-			currentX = Math.max(-1, Math.min(1, rawX));
-			currentZ = Math.max(-1, Math.min(1, rawZ));
+        var dashBtn, upBtn, downBtn, joyZone, joyNub, verticalControls;
 
-			joyNub.style.transform = `translate(${currentX * 40}px, ${-currentZ * 40}px)`;
-			sendInput();
-			}
+        function App() {
+            airconsole = new AirConsole({ "orientation": "landscape" });
 
-			function resetJoystick() {
-			currentX = 0;
-			currentZ = 0;
-			joyNub.style.transform = `translate(0px, 0px)`;
-			sendInput();
-			}
+            dashBtn = document.getElementById("dash-btn");
+            upBtn = document.getElementById("up-btn");
+            downBtn = document.getElementById("down-btn");
+            joyZone = document.getElementById("joystick-zone");
+            joyNub = document.getElementById("joystick-nub");
+            verticalControls = document.getElementById("vertical-controls");
 
-			// --- TOUCH EVENTS ---
-			dashBtn.addEventListener("touchstart", function(e) { e.preventDefault(); airconsole.message(AirConsole.SCREEN, { "dash": true }); });
+            SetupNetworkListeners();
+            SetupEventBindings();
 
-			upBtn.addEventListener("touchstart", function(e) { e.preventDefault(); currentY = 1; sendInput(); });
-			upBtn.addEventListener("touchend", function(e) { e.preventDefault(); currentY = 0; sendInput(); });
+            // --- THE GAMEPAD LOOP ---
+            // Checks the inputs 20 times a second. If they changed, it sends them.
+            // This guarantees zero lag and zero dropped inputs.
+            setInterval(function () {
+                if (currentX !== lastSentX || currentY !== lastSentY || currentZ !== lastSentZ) {
+                    airconsole.message(AirConsole.SCREEN, {
+                        "x": currentX,
+                        "y": currentY,
+                        "z": currentZ
+                    });
+                    lastSentX = currentX;
+                    lastSentY = currentY;
+                    lastSentZ = currentZ;
+                }
+            }, 50);
+        }
 
-			downBtn.addEventListener("touchstart", function(e) { e.preventDefault(); currentY = -1; sendInput(); });
-			downBtn.addEventListener("touchend", function(e) { e.preventDefault(); currentY = 0; sendInput(); });
+        function SetupNetworkListeners() {
+            airconsole.onMessage = function (from, data) {
+                if (!data.gameState) return;
+                if (data.gameState === "Clash") {
+                    var myId = airconsole.getDeviceId();
+                    if (data.clashingIDs && data.clashingIDs.includes(myId)) SetClashUI();
+                    else SetNormalUI();
+                } else {
+                    SetNormalUI();
+                }
+            };
+        }
 
-			// The fix: Added touchstart to stop the browser from scrolling
-			joyZone.addEventListener("touchstart", function(e) {
-			e.preventDefault();
-			calculateJoystickMath(e.touches[0].clientX, e.touches[0].clientY);
-			});
+        function SetClashUI() {
+            joyZone.style.display = "none";
+            verticalControls.style.display = "none";
+            dashBtn.innerText = "MASH!";
+            dashBtn.style.width = "80vw"; dashBtn.style.height = "80vh"; dashBtn.style.borderRadius = "20px";
+            dashBtn.style.backgroundColor = "#e74c3c"; dashBtn.style.pointerEvents = "auto";
+        }
 
-			joyZone.addEventListener("touchmove", function(e) {
-			e.preventDefault();
-			calculateJoystickMath(e.touches[0].clientX, e.touches[0].clientY);
-			});
+        function SetNormalUI() {
+            joyZone.style.display = "flex";
+            verticalControls.style.display = "flex";
+            dashBtn.innerText = "DASH";
+            dashBtn.style.width = "110px"; dashBtn.style.height = "110px"; dashBtn.style.borderRadius = "50%";
+            dashBtn.style.backgroundColor = "#e74c3c"; dashBtn.style.pointerEvents = "auto";
+        }
 
-			joyZone.addEventListener("touchend", function(e) {
-			e.preventDefault();
-			resetJoystick();
-			});
+        // Only updates the MATH locally. The Loop handles the sending.
+        function calculateJoystickMath(clientX, clientY) {
+            var rect = joyZone.getBoundingClientRect();
+            if (rect.width === 0) return; // Safety check
 
-			// The safety net: Catch browser interruptions
-			joyZone.addEventListener("touchcancel", function(e) {
-			e.preventDefault();
-			resetJoystick();
-			});
+            var rawX = ((clientX - rect.left) / rect.width) * 2 - 1;
+            var rawZ = -(((clientY - rect.top) / rect.height) * 2 - 1);
 
-			// --- PC MOUSE EVENTS ---
-			var isDragging = false;
+            // isNaN protects against missing touch coordinates
+            currentX = isNaN(rawX) ? 0 : Math.max(-1, Math.min(1, rawX));
+            currentZ = isNaN(rawZ) ? 0 : Math.max(-1, Math.min(1, rawZ));
 
-			joyZone.addEventListener("mousedown", function(e) {
-			isDragging = true;
-			calculateJoystickMath(e.clientX, e.clientY);
-			});
+            joyNub.style.transform = `translate(${currentX * 40}px, ${-currentZ * 40}px)`;
+        }
 
-			window.addEventListener("mousemove", function(e) {
-			if (isDragging) calculateJoystickMath(e.clientX, e.clientY);
-			});
+        function resetJoystick() {
+            currentX = 0; currentZ = 0;
+            joyNub.style.transform = `translate(0px, 0px)`;
+        }
 
-			window.addEventListener("mouseup", function(e) {
-			if (isDragging) {
-			isDragging = false;
-			resetJoystick();
-			}
-			});
+        function setVertical(value) { currentY = value; }
 
-			dashBtn.addEventListener("mousedown", function() { airconsole.message(AirConsole.SCREEN, { "dash": true }); });
+        function SetupEventBindings() {
+            dashBtn.addEventListener("pointerdown", function (e) {
+                e.preventDefault();
+                airconsole.message(AirConsole.SCREEN, { "dash": true, "mash": true });
+            });
 
-			upBtn.addEventListener("mousedown", function() { currentY = 1; sendInput(); });
-			upBtn.addEventListener("mouseup", function() { currentY = 0; sendInput(); });
+            upBtn.addEventListener("touchstart", function (e) { e.preventDefault(); setVertical(1); });
+            upBtn.addEventListener("touchend", function (e) { e.preventDefault(); setVertical(0); });
+            upBtn.addEventListener("mousedown", function (e) { e.preventDefault(); setVertical(1); });
+            upBtn.addEventListener("mouseup", function (e) { e.preventDefault(); setVertical(0); });
 
-			downBtn.addEventListener("mousedown", function() { currentY = -1; sendInput(); });
-			downBtn.addEventListener("mouseup", function() { currentY = 0; sendInput(); });
-			}
+            downBtn.addEventListener("touchstart", function (e) { e.preventDefault(); setVertical(-1); });
+            downBtn.addEventListener("touchend", function (e) { e.preventDefault(); setVertical(0); });
+            downBtn.addEventListener("mousedown", function (e) { e.preventDefault(); setVertical(-1); });
+            downBtn.addEventListener("mouseup", function (e) { e.preventDefault(); setVertical(0); });
 
-			// --- RATE LIMITER VARIABLES ---
-			var lastSendTime = 0;
-			var sendDelay = 40; // 40ms = approx 25 updates per second
+            joyZone.addEventListener("touchstart", function (e) { e.preventDefault(); calculateJoystickMath(e.touches[0].clientX, e.touches[0].clientY); });
+            joyZone.addEventListener("touchmove", function (e) { e.preventDefault(); calculateJoystickMath(e.touches[0].clientX, e.touches[0].clientY); });
+            joyZone.addEventListener("touchend", function (e) { e.preventDefault(); resetJoystick(); });
+            joyZone.addEventListener("touchcancel", function (e) { e.preventDefault(); resetJoystick(); });
 
-			function sendInput() {
-			if (!airconsole) return;
-
-			var now = Date.now();
-
-			// We ALWAYS want to send the message instantly if the player let go of the controls
-			var isStopping = (currentX === 0 && currentY === 0 && currentZ === 0);
-
-			// Only send data if it's a STOP command, OR if 40 milliseconds have passed
-			if (isStopping || (now - lastSendTime > sendDelay)) {
-			airconsole.message(AirConsole.SCREEN, {
-			"x": currentX,
-			"y": currentY,
-			"z": currentZ
-			});
-			lastSendTime = now;
-			}
-			}
-		</script>
-	</head>
-	<body onload="window.app = new App()">
-		<div class="column">
-			<div id="joystick-zone">
-				<div id="joystick-nub"></div>
-			</div>
-		</div>
-		<div class="column">
-			<button id="dash-btn">DASH</button>
-		</div>
-		<div id="vertical-controls" class="column">
-			<button id="up-btn" class="y-btn">UP</button>
-			<button id="down-btn" class="y-btn">DOWN</button>
-		</div>
-	</body>
+            var isDragging = false;
+            joyZone.addEventListener("mousedown", function (e) { isDragging = true; calculateJoystickMath(e.clientX, e.clientY); });
+            window.addEventListener("mousemove", function (e) { if (isDragging) calculateJoystickMath(e.clientX, e.clientY); });
+            window.addEventListener("mouseup", function (e) { if (isDragging) { isDragging = false; resetJoystick(); } });
+        }
+    </script>
+</head>
+<body onload="window.app = new App()">
+    <div class="column"><div id="joystick-zone"><div id="joystick-nub"></div></div></div>
+    <div class="column"><button id="dash-btn">DASH</button></div>
+    <div id="vertical-controls" class="column"><button id="up-btn" class="y-btn">UP</button><button id="down-btn" class="y-btn">DOWN</button></div>
+</body>
 </html>

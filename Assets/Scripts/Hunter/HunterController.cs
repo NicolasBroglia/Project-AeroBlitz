@@ -3,6 +3,8 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody))]
 public class HunterController : MonoBehaviour
 {
+    #region Enums & State
+
     public enum HunterState
     {
         Idle,
@@ -14,6 +16,10 @@ public class HunterController : MonoBehaviour
 
     [Header("State")]
     public HunterState currentState = HunterState.Idle;
+
+    #endregion
+
+    #region Variables & Settings
 
     [Header("References")]
     [SerializeField] private InputSystemManager inputManager;
@@ -37,12 +43,17 @@ public class HunterController : MonoBehaviour
     [SerializeField] private float minHeight = 0.5f;
     [SerializeField] private float maxHeight = 4f;
 
+    #endregion
+
+    #region Unity Lifecycle
+
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
         rb.interpolation = RigidbodyInterpolation.Interpolate;
         rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
         rb.useGravity = false;
+
         inputManager = GetComponent<InputSystemManager>();
 
         ChangeState(HunterState.Idle);
@@ -52,12 +63,13 @@ public class HunterController : MonoBehaviour
     {
         ManageStateMachine();
 
-        // Handle Dash Timers
         if (dashCooldownTimer > 0) dashCooldownTimer -= Time.deltaTime;
         if (activeDashTimer > 0) activeDashTimer -= Time.deltaTime;
 
-        // Check for Dash Input
-        if (currentState == HunterState.Chasing)
+        // Allow actions in ActiveMatch AND Lobby
+        bool canPlay = GameManager.Instance.CurrentState == GameState.ActiveMatch || GameManager.Instance.CurrentState == GameState.Lobby;
+
+        if (currentState == HunterState.Chasing && canPlay)
         {
             if (inputManager.GetDash() && dashCooldownTimer <= 0f)
             {
@@ -70,10 +82,30 @@ public class HunterController : MonoBehaviour
     {
         if (currentState == HunterState.Chasing)
         {
-            HandleMovement();
+            bool canPlay = GameManager.Instance.CurrentState == GameState.ActiveMatch || GameManager.Instance.CurrentState == GameState.Lobby;
+
+            if (canPlay)
+            {
+                HandleMovement();
+                HandleRotation();
+            }
+            else
+            {
+                // Drift to a stop during clashes and countdowns
+                rb.linearVelocity = Vector3.Lerp(rb.linearVelocity, Vector3.zero, Time.fixedDeltaTime * 5f);
+            }
+
             ApplyHeightClamp();
-            HandleRotation();
         }
+    }
+
+    #endregion
+
+    #region State Machine
+
+    public void ChangeState(HunterState newState)
+    {
+        currentState = newState;
     }
 
     private void ManageStateMachine()
@@ -96,25 +128,9 @@ public class HunterController : MonoBehaviour
         }
     }
 
-    private void PerformDash()
-    {
-        dashCooldownTimer = dashCooldown;
-        activeDashTimer = dashDuration;
+    #endregion
 
-        Vector2 planeInput = inputManager.GetMovement();
-        float elevationInput = inputManager.GetElevation();
-        Vector3 dashDir = new Vector3(planeInput.x, elevationInput, planeInput.y).normalized;
-
-        // If the player isn't touching the joystick, dash in the direction they are currently moving/facing
-        if (dashDir == Vector3.zero)
-        {
-            dashDir = rb.linearVelocity.sqrMagnitude > 0.1f ? rb.linearVelocity.normalized : transform.forward;
-        }
-
-        // Wipe current velocity so the dash is explosive and doesn't compound awkwardly
-        rb.linearVelocity = Vector3.zero;
-        rb.AddForce(dashDir * dashForce, ForceMode.Impulse);
-    }
+    #region Physics & Movement
 
     private void HandleMovement()
     {
@@ -144,7 +160,6 @@ public class HunterController : MonoBehaviour
         else
         {
             Quaternion flatRotation = Quaternion.Euler(0f, rb.rotation.eulerAngles.y, 0f);
-
             rb.MoveRotation(Quaternion.Slerp(rb.rotation, flatRotation, Time.fixedDeltaTime * rotationSpeed));
         }
     }
@@ -162,35 +177,33 @@ public class HunterController : MonoBehaviour
         }
     }
 
-    public void ChangeState(HunterState newState)
-    {
-        currentState = newState;
-    }
+    #endregion
 
-    public void ApplyKnockbackFrom(Vector3 sourcePosition)
-    {
-        ChangeState(HunterState.Stunned);
-        Vector3 bounceDirection = (transform.position - sourcePosition).normalized;
-        rb.AddForce(bounceDirection * 20f, ForceMode.Impulse);
-        StartCoroutine(StunRecoveryRoutine());
-    }
+    #region Dash Logic
 
-    private void HandleHunterCollision(Collision collision)
+    private void PerformDash()
     {
-        ChangeState(HunterState.Stunned);
-        Vector3 bounceDirection = (transform.position - collision.transform.position).normalized;
-        rb.AddForce(bounceDirection * 10f, ForceMode.Impulse);
-        StartCoroutine(StunRecoveryRoutine());
-    }
+        dashCooldownTimer = dashCooldown;
+        activeDashTimer = dashDuration;
 
-    private System.Collections.IEnumerator StunRecoveryRoutine()
-    {
-        yield return new WaitForSeconds(1.5f);
-        if (currentState == HunterState.Stunned)
+        Vector2 planeInput = inputManager.GetMovement();
+        float elevationInput = inputManager.GetElevation();
+        Vector3 dashDir = new Vector3(planeInput.x, elevationInput, planeInput.y).normalized;
+
+        // If the player isn't touching the joystick, dash in the direction they are currently moving/facing
+        if (dashDir == Vector3.zero)
         {
-            ChangeState(HunterState.Chasing);
+            dashDir = rb.linearVelocity.sqrMagnitude > 0.1f ? rb.linearVelocity.normalized : transform.forward;
         }
+
+        // Wipe current velocity so the dash is explosive and doesn't compound awkwardly
+        rb.linearVelocity = Vector3.zero;
+        rb.AddForce(dashDir * dashForce, ForceMode.Impulse);
     }
+
+    #endregion
+
+    #region Collision & Combat
 
     private void OnCollisionEnter(Collision collision)
     {
@@ -212,6 +225,35 @@ public class HunterController : MonoBehaviour
         }
     }
 
+    private void HandleHunterCollision(Collision collision)
+    {
+        ChangeState(HunterState.Stunned);
+        Vector3 bounceDirection = (transform.position - collision.transform.position).normalized;
+        rb.AddForce(bounceDirection * 10f, ForceMode.Impulse);
+        StartCoroutine(StunRecoveryRoutine());
+    }
+
+    public void ApplyKnockbackFrom(Vector3 sourcePosition)
+    {
+        ChangeState(HunterState.Stunned);
+        Vector3 bounceDirection = (transform.position - sourcePosition).normalized;
+        rb.AddForce(bounceDirection * 20f, ForceMode.Impulse);
+        StartCoroutine(StunRecoveryRoutine());
+    }
+
+    private System.Collections.IEnumerator StunRecoveryRoutine()
+    {
+        yield return new WaitForSeconds(1.5f);
+        if (currentState == HunterState.Stunned)
+        {
+            ChangeState(HunterState.Chasing);
+        }
+    }
+
+    #endregion
+
+    #region Editor Debug
+
 #if UNITY_EDITOR
     private void OnDrawGizmos()
     {
@@ -229,4 +271,5 @@ public class HunterController : MonoBehaviour
     }
 #endif
 
+    #endregion
 }

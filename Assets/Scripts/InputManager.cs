@@ -2,26 +2,35 @@ using UnityEngine;
 using NDream.AirConsole;
 using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
-using UnityEngine.InputSystem; // <-- Required for the New Input System
+using UnityEngine.InputSystem;
 
-// We create a clean container for each phone's data
+// ==========================================
+// --- DATA CONTAINER ---
+// ==========================================
 public class PlayerInputData
 {
     public float MoveX;
     public float MoveY;
     public float MoveZ;
     public bool IsDashing;
+    public bool IsMashing;
 }
 
 public class InputManager : MonoBehaviour
 {
     public static InputManager Instance;
 
+    #region Variables & Setup
+
     [Header("Offline Testing")]
     [SerializeField] private bool offlineKeyboard = false;
 
     // The Dictionary mapping Phone ID -> Input Data
     private Dictionary<int, PlayerInputData> deviceInputs = new Dictionary<int, PlayerInputData>();
+
+    #endregion
+
+    #region Unity Lifecycle
 
     void Awake()
     {
@@ -43,23 +52,41 @@ public class InputManager : MonoBehaviour
         }
     }
 
+    #endregion
+
+    #region AirConsole Network Callbacks
+
     // Called automatically whenever ANY phone sends a message
     void OnMessage(int fromDeviceID, JToken data)
     {
-        // If this is a new phone, create a data container for it
+        if (data == null || data.Type == JTokenType.Null) return;
+
         if (!deviceInputs.ContainsKey(fromDeviceID))
         {
             deviceInputs[fromDeviceID] = new PlayerInputData();
         }
 
-        // Parse and store the data FOR THIS SPECIFIC PHONE
-        if (data["x"] != null) deviceInputs[fromDeviceID].MoveX = (float)data["x"];
-        if (data["y"] != null) deviceInputs[fromDeviceID].MoveY = (float)data["y"];
-        if (data["z"] != null) deviceInputs[fromDeviceID].MoveZ = (float)data["z"];
-
-        if (data["dash"] != null && (bool)data["dash"])
+        try
         {
-            deviceInputs[fromDeviceID].IsDashing = true;
+            // Convert.ToSingle is the safest way to pull raw numbers out of Newtonsoft JSON
+            if (data["x"] != null && data["x"].Type != JTokenType.Null)
+                deviceInputs[fromDeviceID].MoveX = System.Convert.ToSingle(data["x"]);
+
+            if (data["y"] != null && data["y"].Type != JTokenType.Null)
+                deviceInputs[fromDeviceID].MoveY = System.Convert.ToSingle(data["y"]);
+
+            if (data["z"] != null && data["z"].Type != JTokenType.Null)
+                deviceInputs[fromDeviceID].MoveZ = System.Convert.ToSingle(data["z"]);
+
+            if (data["dash"] != null && data["dash"].Type != JTokenType.Null)
+                deviceInputs[fromDeviceID].IsDashing = (bool)data["dash"];
+
+            if (data["mash"] != null && data["mash"].Type != JTokenType.Null)
+                deviceInputs[fromDeviceID].IsMashing = (bool)data["mash"];
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[JSON ERROR] Device {fromDeviceID} failed parsing: {e.Message}");
         }
     }
 
@@ -71,83 +98,104 @@ public class InputManager : MonoBehaviour
         }
     }
 
+    #endregion
+
+    #region Input Polling (Continuous Axes)
 
     public PlayerInputData GetInputForDevice(int deviceID)
     {
-        // --- OFFLINE INJECTION (NEW INPUT SYSTEM) ---
-        if (offlineKeyboard)
+        PlayerInputData mergedData = new PlayerInputData();
+
+        // 1. Pull AirConsole Network Data First
+        if (deviceInputs.ContainsKey(deviceID))
+        {
+            mergedData.MoveX = deviceInputs[deviceID].MoveX;
+            mergedData.MoveY = deviceInputs[deviceID].MoveY;
+            mergedData.MoveZ = deviceInputs[deviceID].MoveZ;
+            mergedData.IsDashing = deviceInputs[deviceID].IsDashing;
+            mergedData.IsMashing = deviceInputs[deviceID].IsMashing;
+        }
+
+        // 2. Layer Offline Keyboard Data on top (if enabled)
+        if (offlineKeyboard && Keyboard.current != null)
         {
             var kb = Keyboard.current;
 
-            // Safety check in case no keyboard is detected by Unity
-            if (kb != null)
+            if (deviceID == 0) // Snitch (WASD + Q/E)
             {
-                // Player 1 (Snitch) -> STRICTLY WASD, Q/E for Y-axis, Spacebar for Dash
-                if (deviceID == 0)
-                {
-                    float wasdX = (kb.dKey.isPressed ? 1 : 0) - (kb.aKey.isPressed ? 1 : 0);
-                    float wasdZ = (kb.wKey.isPressed ? 1 : 0) - (kb.sKey.isPressed ? 1 : 0);
-                    float wasdY = (kb.eKey.isPressed ? 1 : 0) - (kb.qKey.isPressed ? 1 : 0);
+                float x = (kb.dKey.isPressed ? 1 : 0) - (kb.aKey.isPressed ? 1 : 0);
+                float z = (kb.wKey.isPressed ? 1 : 0) - (kb.sKey.isPressed ? 1 : 0);
+                float y = (kb.eKey.isPressed ? 1 : 0) - (kb.qKey.isPressed ? 1 : 0);
 
-                    return new PlayerInputData
-                    {
-                        MoveX = wasdX,
-                        MoveZ = wasdZ,
-                        MoveY = wasdY,
-                        IsDashing = kb.spaceKey.wasPressedThisFrame
-                    };
-                }
+                // Only override if the keyboard is actually being pressed
+                if (x != 0) mergedData.MoveX = x;
+                if (z != 0) mergedData.MoveZ = z;
+                if (y != 0) mergedData.MoveY = y;
+            }
+            else if (deviceID == 1) // Hunter (Arrows + Ctrl/Shift)
+            {
+                float x = (kb.rightArrowKey.isPressed ? 1 : 0) - (kb.leftArrowKey.isPressed ? 1 : 0);
+                float z = (kb.upArrowKey.isPressed ? 1 : 0) - (kb.downArrowKey.isPressed ? 1 : 0);
+                float y = (kb.rightShiftKey.isPressed ? 1 : 0) - (kb.rightCtrlKey.isPressed ? 1 : 0);
 
-                // Player 2 (Hunter) -> Arrow Keys, RightShift/Ctrl for Y-axis, Enter for Dash
-                if (deviceID == 1)
-                {
-                    float arrowX = (kb.rightArrowKey.isPressed ? 1 : 0) - (kb.leftArrowKey.isPressed ? 1 : 0);
-                    float arrowZ = (kb.upArrowKey.isPressed ? 1 : 0) - (kb.downArrowKey.isPressed ? 1 : 0);
-                    float arrowY = (kb.rightShiftKey.isPressed ? 1 : 0) - (kb.rightCtrlKey.isPressed ? 1 : 0);
-
-                    return new PlayerInputData
-                    {
-                        MoveX = arrowX,
-                        MoveZ = arrowZ,
-                        MoveY = arrowY,
-                        IsDashing = kb.enterKey.wasPressedThisFrame
-                    };
-                }
+                if (x != 0) mergedData.MoveX = x;
+                if (z != 0) mergedData.MoveZ = z;
+                if (y != 0) mergedData.MoveY = y;
             }
         }
 
-        // --- 2. NORMAL AIRCONSOLE BEHAVIOR ---
-        if (deviceInputs.ContainsKey(deviceID))
-        {
-            return deviceInputs[deviceID];
-        }
-        return null;
+        return mergedData;
     }
 
-    // Add this new method:
+    #endregion
+
+    #region Input Consumption (Action Triggers)
+
     public bool ConsumeDash(int deviceID)
     {
-        // 1. Offline Keyboard Check
-        if (offlineKeyboard)
+        bool triggered = false;
+
+        // 1. Check Keyboard (if enabled)
+        if (offlineKeyboard && Keyboard.current != null)
         {
-            var kb = Keyboard.current;
-            if (kb != null)
+            if (deviceID == 0 && Keyboard.current.spaceKey.wasPressedThisFrame) triggered = true;
+            if (deviceID == 1 && Keyboard.current.enterKey.wasPressedThisFrame) triggered = true;
+        }
+
+        // 2. Check AirConsole (Consume it instantly so it doesn't double-fire)
+        if (deviceInputs.ContainsKey(deviceID) && deviceInputs[deviceID].IsDashing)
+        {
+            triggered = true;
+            deviceInputs[deviceID].IsDashing = false;
+        }
+
+        return triggered;
+    }
+
+    public bool ConsumeMash(int deviceID)
+    {
+        bool triggered = false;
+
+        // 1. Check Keyboard (if enabled)
+        if (offlineKeyboard && Keyboard.current != null)
+        {
+            if (deviceID == 0 && Keyboard.current.spaceKey.wasPressedThisFrame) triggered = true;
+            if (deviceID == 1 && Keyboard.current.enterKey.wasPressedThisFrame) triggered = true;
+        }
+
+        // 2. Check AirConsole (Failsafe: Dash or Mash counts)
+        if (deviceInputs.ContainsKey(deviceID))
+        {
+            if (deviceInputs[deviceID].IsMashing || deviceInputs[deviceID].IsDashing)
             {
-                if (deviceID == 0) return kb.spaceKey.wasPressedThisFrame;
-                if (deviceID == 1) return kb.enterKey.wasPressedThisFrame;
+                triggered = true;
+                deviceInputs[deviceID].IsMashing = false;
+                deviceInputs[deviceID].IsDashing = false;
             }
         }
 
-        // 2. AirConsole Network Check
-        if (deviceInputs.ContainsKey(deviceID))
-        {
-            bool dashTriggered = deviceInputs[deviceID].IsDashing;
-
-            // "Consume" the input immediately so it doesn't fire continuously
-            deviceInputs[deviceID].IsDashing = false;
-
-            return dashTriggered;
-        }
-        return false;
+        return triggered;
     }
+
+    #endregion
 }

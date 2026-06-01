@@ -113,11 +113,17 @@ public class GameManager : MonoBehaviour
         {
             currentMatchTimer -= Time.deltaTime;
 
+            //UI updates match timer
+            UIManager.Instance.UpdateTimerDisplay(currentMatchTimer);
+
             if (connectedDevices.Count > 0)
             {
                 int currentSnitchID = connectedDevices[0];
                 if (!snitchTimeScores.ContainsKey(currentSnitchID)) snitchTimeScores[currentSnitchID] = 0f;
                 snitchTimeScores[currentSnitchID] += Time.deltaTime;
+
+                //UI updates snitch's score
+                UIManager.Instance.UpdateScoresDisplay(currentSnitchID, connectedDevices);
             }
 
             if (currentMatchTimer <= 0)
@@ -129,6 +135,9 @@ public class GameManager : MonoBehaviour
         else if (CurrentState == GameState.Clash)
         {
             clashTimer -= Time.deltaTime;
+
+            //UI updates clash timer on screen
+            UIManager.Instance.ShowClashTimer(clashTimer);
 
             // Constantly poll for mash inputs from both players
             if (clashingHunter != null && clashingHunter.GetComponent<InputSystemManager>().GetMash())
@@ -188,6 +197,8 @@ public class GameManager : MonoBehaviour
 
             // Notice: If CurrentState == Lobby, we do NOTHING. They just sit in the list!
         }
+        //UI updates players labels
+        UIManager.Instance.UpdateScoresDisplay(GetCurrentSnitchID(), connectedDevices);
     }
 
     void OnDeviceDisconnect(int deviceId)
@@ -201,6 +212,9 @@ public class GameManager : MonoBehaviour
             activePlayers.Clear();
             ChangeState(GameState.Lobby);
         }
+        //UI updates players labels
+        UIManager.Instance.UpdateScoresDisplay(GetCurrentSnitchID(), connectedDevices);
+
     }
 
     #endregion
@@ -266,18 +280,30 @@ public class GameManager : MonoBehaviour
 
     private IEnumerator StartCountdownRoutine()
     {
+        //UI clears the screen before countdown
+        UIManager.Instance.HideNotification();
+
         ChangeState(GameState.Countdown);
         SpawnPlayers();
 
-        Debug.Log("3..."); yield return new WaitForSeconds(1f);
-        Debug.Log("2..."); yield return new WaitForSeconds(1f);
-        Debug.Log("1..."); yield return new WaitForSeconds(1f);
-        Debug.Log("GO!");
+        //UI displays the countdown on screen
+        UIManager.Instance.ShowCountdownText("3");
+        yield return new WaitForSeconds(1f);
+
+        UIManager.Instance.ShowCountdownText("2");
+        yield return new WaitForSeconds(1f);
+
+        UIManager.Instance.ShowCountdownText("1");
+        yield return new WaitForSeconds(1f);
+
+        UIManager.Instance.ShowCountdownText("GO!");
 
         ChangeState(GameState.ActiveMatch);
-
-        // Manager-Driven Start
         WakeUpPlayers();
+
+        //UI Waits 1s and hides the countdown text
+        yield return new WaitForSeconds(1f);
+        UIManager.Instance.HideCountdownText();
     }
 
     private IEnumerator EndMatchRoutine()
@@ -298,6 +324,10 @@ public class GameManager : MonoBehaviour
                 winnerID = score.Key;
             }
         }
+
+        //UI notifies the winner
+        UIManager.Instance.ShowNotification($"<color=green>WINNER: Device {winnerID} with {highestTime:F1} seconds!</color>"); 
+        StartCoroutine(ClearNotificationAfter(5f));
 
         Debug.Log($"============== MATCH OVER ==============");
         Debug.Log($"WINNER: Device {winnerID} with {highestTime:F1} seconds!");
@@ -464,11 +494,17 @@ public class GameManager : MonoBehaviour
         clashTimer = clashDuration;
         hunterClashScore = 0;
         snitchClashScore = 0;
+
+        //UI notifies clash started
+        UIManager.Instance.ShowNotification("<color=red>¡MASH BUTTONS!</color>");
     }
 
     public void ResolveClash(bool hunterWins)
     {
         if (CurrentState != GameState.Clash) return;
+
+        //UI hides clash timer
+        UIManager.Instance.HideClashTimer();
 
         Debug.Log($"--- CLASH RESOLVED! Hunter Wins: {hunterWins} ---");
 
@@ -487,6 +523,11 @@ public class GameManager : MonoBehaviour
             ChangeState(GameState.ActiveMatch);
             clashingSnitch.ChangeState(SnitchController.SnitchState.Fleeing);
             clashingHunter.ApplyKnockbackFrom(clashingSnitch.transform.position);
+
+            //UI notifies snitch scaped
+            UIManager.Instance.ShowNotification("<color=yellow>¡THE SNITCH GOT AWAY!</color>");
+            //Hide after 2s
+            StartCoroutine(ClearNotificationAfter(2f));
         }
 
         clashingHunter = null;
@@ -501,7 +542,14 @@ public class GameManager : MonoBehaviour
         Debug.Log($"TAG! Device {oldSnitchID} caught by Device {winningHunterID}!");
         Debug.Log($"Device {oldSnitchID} held the Snitch for {snitchTimeScores[oldSnitchID]:F1} seconds total so far.");
 
+        //UI notifies who caught the snitch
+        UIManager.Instance.ShowNotification($"¡PLAYER {winningHunterID} CAUGHT THE SNITCH!");
+        UIManager.Instance.UpdateScoresDisplay(GetCurrentSnitchID(), connectedDevices);
+
         StartCoroutine(ResetRoundRoutine(winningHunterID));
+
+        //UI updates the snitch player
+        UIManager.Instance.UpdateScoresDisplay(GetCurrentSnitchID(), connectedDevices);
     }
 
     private IEnumerator ResetRoundRoutine(int winningHunterID)
@@ -532,6 +580,15 @@ public class GameManager : MonoBehaviour
     public int GetConnectedPlayerCount() { return connectedDevices.Count; }
     public float GetPlayerScore(int deviceID) { return snitchTimeScores.ContainsKey(deviceID) ? snitchTimeScores[deviceID] : 0f; }
     public int GetCurrentSnitchID() { return (CurrentState == GameState.ActiveMatch && connectedDevices.Count > 0) ? connectedDevices[0] : -1; }
+    public List<int> GetConnectedDevices() { return connectedDevices; }
+    #endregion
+
+    #region UI
+    private IEnumerator ClearNotificationAfter(float seconds)
+    {
+        yield return new WaitForSeconds(seconds);
+        UIManager.Instance.HideNotification();
+    }
 
     #endregion
 

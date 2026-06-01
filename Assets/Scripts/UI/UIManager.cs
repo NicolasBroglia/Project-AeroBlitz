@@ -1,7 +1,7 @@
 using System.Text;
+using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
-using NDream.AirConsole;
 
 public class UIManager : MonoBehaviour
 {
@@ -11,134 +11,94 @@ public class UIManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI playersCountText;
     [SerializeField] private TextMeshProUGUI scoresText;
     [SerializeField] private TextMeshProUGUI timerText;
+    [SerializeField] private TextMeshProUGUI coundownText;
+
+    [Header("Minigame & Notifications")]
+    [Tooltip("Texto central para avisos: ¡Atrapada!, ¡Mash!, etc.")]
+    [SerializeField] private TextMeshProUGUI notificationText;
+    [Tooltip("Texto para el tiempo restante del minijuego de mashear")]
+    [SerializeField] private TextMeshProUGUI clashTimerText;
 
     void Awake()
     {
         if (Instance == null) Instance = this;
         else Destroy(gameObject);
-    }
 
-    void OnEnable()
-    {
-        if (AirConsole.instance != null)
+        // Vaciamos todos los textos apenas arranca la escena
+        if (timerText != null) timerText.text = "";
+        if (scoresText != null) scoresText.text = "";
+        if (playersCountText != null) playersCountText.text = "";
+        if (coundownText != null) coundownText.text = "";
+
+        // Apagamos los textos de notificaciones por defecto
+        if (notificationText != null)
         {
-            AirConsole.instance.onConnect += OnDeviceConnect;
-            AirConsole.instance.onDisconnect += OnDeviceDisconnect;
-            AirConsole.instance.onReady += OnAirConsoleReady;
+            notificationText.text = "";
+            notificationText.gameObject.SetActive(false);
+        }
+        if (clashTimerText != null)
+        {
+            clashTimerText.text = "";
+            clashTimerText.gameObject.SetActive(false);
         }
     }
 
-    void OnDisable()
+    public void UpdateTimerDisplay(float timeRemaining)
     {
-        if (AirConsole.instance != null)
-        {
-            AirConsole.instance.onConnect -= OnDeviceConnect;
-            AirConsole.instance.onDisconnect -= OnDeviceDisconnect;
-            AirConsole.instance.onReady -= OnAirConsoleReady;
-        }
+        timerText.text = Mathf.CeilToInt(timeRemaining).ToString();
     }
 
-    void Start()
+    public void UpdateScoresDisplay(int currentSnitchId, List<int> connectedDevices)
     {
-        // Si el plugin ya está listo, refrescamos; si no, esperamos al evento onReady.
-        if (AirConsole.instance != null && AirConsole.instance.IsAirConsoleUnityPluginReady())
-        {
-            RefreshAll();
-        }
+        if (currentSnitchId != -1)
+            playersCountText.text = $"Snitch: Player {currentSnitchId}";
         else
+            playersCountText.text = "Waiting for players...";
+
+        StringBuilder sb = new StringBuilder();
+        if (connectedDevices != null && connectedDevices.Count > 0)
         {
-            // Muestra estado inicial mínimo (sin depender de AirConsole)
-            RefreshTimer();
-        }
-    }
-
-    void Update()
-    {
-        // Timer en tiempo real
-        RefreshTimer();
-    }
-
-    private void OnDeviceConnect(int deviceId) => RefreshPlayersAndScores();
-    private void OnDeviceDisconnect(int deviceId) => RefreshPlayersAndScores();
-
-    private void OnAirConsoleReady(string code)
-    {
-        // Plugin listo: actualizamos y nos desuscribimos
-        RefreshAll();
-        if (AirConsole.instance != null)
-        {
-            AirConsole.instance.onReady -= OnAirConsoleReady;
-        }
-    }
-
-    public void RefreshAll()
-    {
-        RefreshPlayersAndScores();
-        RefreshTimer();
-    }
-
-    private void RefreshPlayersAndScores()
-    {
-        int connected = 0;
-        System.Collections.Generic.List<int> controllers = null;
-
-        if (AirConsole.instance != null)
-        {
-            try
+            foreach (int id in connectedDevices)
             {
-                // Comprobación defensiva; IsAirConsoleUnityPluginReady ya gestionado en Start/OnAirConsoleReady
-                if (AirConsole.instance.IsAirConsoleUnityPluginReady())
-                {
-                    controllers = AirConsole.instance.GetControllerDeviceIds();
-                    connected = controllers?.Count ?? 0;
-                }
-            }
-            catch (AirConsole.NotReadyException)
-            {
-                // Si por alguna razón se lanza, evitamos que la UI se rompa y mantenemos valores por defecto.
-                controllers = null;
-                connected = 0;
+                float score = GameManager.Instance.GetPlayerScore(id);
+                sb.AppendLine($"Player {id}: {score:F1}s");
             }
         }
 
-        if (playersCountText != null) playersCountText.text = $"Jugadores: {connected}";
-
-        if (scoresText != null)
-        {
-            var sb = new StringBuilder();
-            if (controllers == null || controllers.Count == 0)
-            {
-                sb.AppendLine("Puntajes: —");
-            }
-            else
-            {
-                sb.AppendLine("Puntajes:");
-                int currentSnitch = GameManager.Instance != null ? GameManager.Instance.GetCurrentSnitchID() : -1;
-
-                foreach (int deviceId in controllers)
-                {
-                    float score = GameManager.Instance != null ? GameManager.Instance.GetPlayerScore(deviceId) : 0f;
-                    string marker = deviceId == currentSnitch ? " (Snitch)" : "";
-                    sb.AppendLine($"#{deviceId}: {score:0.00}s{marker}");
-                }
-            }
-
-            scoresText.text = sb.ToString();
-        }
+        scoresText.text = sb.ToString();
     }
 
-    private void RefreshTimer()
+    public void ShowCountdownText(string text)
     {
-        if (timerText == null || GameManager.Instance == null) return;
-        float remaining = GameManager.Instance.GetTimeRemaining();
-        timerText.text = FormatTime(remaining);
+        if (!coundownText.gameObject.activeSelf) coundownText.gameObject.SetActive(true);
+        coundownText.text = text;
     }
 
-    private static string FormatTime(float seconds)
+    public void HideCountdownText()
     {
-        seconds = Mathf.Max(0f, seconds);
-        int mins = Mathf.FloorToInt(seconds / 60f);
-        int secs = Mathf.FloorToInt(seconds % 60f);
-        return $"{mins:00}:{secs:00}";
+        if (coundownText.gameObject.activeSelf) coundownText.gameObject.SetActive(false);
+    }
+
+
+    public void ShowNotification(string message)
+    {
+        if (!notificationText.gameObject.activeSelf) notificationText.gameObject.SetActive(true);
+        notificationText.text = message;
+    }
+
+    public void HideNotification()
+    {
+        if (notificationText.gameObject.activeSelf) notificationText.gameObject.SetActive(false);
+    }
+
+    public void ShowClashTimer(float timeRemaining)
+    {
+        if (!clashTimerText.gameObject.activeSelf) clashTimerText.gameObject.SetActive(true);
+        clashTimerText.text = $"TIME: {timeRemaining:F1}s";
+    }
+
+    public void HideClashTimer()
+    {
+        if (clashTimerText.gameObject.activeSelf) clashTimerText.gameObject.SetActive(false);
     }
 }

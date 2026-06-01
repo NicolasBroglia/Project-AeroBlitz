@@ -107,6 +107,7 @@ public class GameManager : MonoBehaviour
 
         // ALWAYS start in the Lobby, waiting for the Start Match button, 
         // regardless of whether we are online or offline
+        UIManager.Instance.ShowLobby();
         ChangeState(GameState.Lobby);
     }
 
@@ -288,6 +289,8 @@ public class GameManager : MonoBehaviour
         UIManager.Instance.HideNotification(0);
 
         ChangeState(GameState.Countdown);
+        UIManager.Instance.HideLobby();
+
         SpawnPlayers();
 
         //UI displays the countdown on screen

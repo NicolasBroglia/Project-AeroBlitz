@@ -20,6 +20,12 @@ public class UIManager : MonoBehaviour
     [Tooltip("Texto para el tiempo restante del minijuego de mashear")]
     [SerializeField] private TextMeshProUGUI clashTimerText;
 
+
+    //nico
+    [Header("Lobby Settings")]
+    [SerializeField] private GameObject lobbyPanel; // We will create this in the Unity Editor
+    //
+
     void Awake()
     {
         if (Instance == null) Instance = this;
@@ -137,4 +143,16 @@ public class UIManager : MonoBehaviour
             notificationText.gameObject.SetActive(false);
         }
     }
+
+    //nico
+    public void ShowLobby()
+    {
+        if (lobbyPanel != null) lobbyPanel.SetActive(true);
+    }
+
+    public void HideLobby()
+    {
+        if (lobbyPanel != null) lobbyPanel.SetActive(false);
+    }
+    //
 }

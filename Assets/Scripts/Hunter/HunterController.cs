@@ -177,6 +177,22 @@ public class HunterController : MonoBehaviour
         }
     }
 
+    public void SetSpeed(float newSpeed)
+    {
+        moveSpeed = newSpeed;
+    }
+    public void SetMaxSpeed(float newMaxSpeed)
+    {
+        maxSpeed = newMaxSpeed;
+    }
+    public float GetSpeed()
+    {
+        return moveSpeed;
+    }
+    public float GetMaxSpeed()
+    {
+        return maxSpeed;
+    }
     #endregion
 
     #region Dash Logic

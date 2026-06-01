@@ -17,6 +17,7 @@ GameObject:
   - component: {fileID: 253083277499436173}
   - component: {fileID: 4947588670237562180}
   - component: {fileID: 7397904432980778400}
+  - component: {fileID: 5349715269997674435}
   m_Layer: 0
   m_Name: HunterPlayer 1
   m_TagString: Hunter
@@ -307,6 +308,18 @@ LineRenderer:
   m_UseWorldSpace: 1
   m_Loop: 0
   m_ApplyActiveColorSpace: 1
+--- !u!114 &5349715269997674435
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8186502679140566490}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 68135b3e59c94324896e5a423dab6645, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PowerUpReceiver
 --- !u!1001 &8993538961647619053
 PrefabInstance:
   m_ObjectHideFlags: 0

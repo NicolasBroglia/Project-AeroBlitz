@@ -155,7 +155,22 @@ public class SnitchController : MonoBehaviour
             rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
         }
     }
-
+    public void SetSpeed(float newSpeed)
+    {
+        moveSpeed = newSpeed;
+    }
+    public void SetMaxSpeed(float newMaxSpeed)
+    {
+        maxSpeed = newMaxSpeed;
+    }
+    public float GetSpeed()
+    {
+        return moveSpeed;
+    }
+    public float GetMaxSpeed()
+    {
+        return maxSpeed;
+    }
     #endregion
 
     #region Dash Logic

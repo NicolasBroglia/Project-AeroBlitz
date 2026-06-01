@@ -1,7 +1,9 @@
 ﻿using UnityEngine;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using NDream.AirConsole;
+using Random = UnityEngine.Random;
 
 public enum GameState
 {
@@ -21,6 +23,7 @@ public class GameManager : MonoBehaviour
 
     public GameState CurrentState { get; private set; }
     private const int MAX_PLAYERS = 5;
+    public static event Action<GameState> OnGameStateChanged;
 
     [Header("Match Settings")]
     [SerializeField] private float matchDuration = 120f;
@@ -224,6 +227,7 @@ public class GameManager : MonoBehaviour
     public void ChangeState(GameState newState)
     {
         CurrentState = newState;
+        OnGameStateChanged?.Invoke(newState);
 
         if (AirConsole.instance != null)
         {

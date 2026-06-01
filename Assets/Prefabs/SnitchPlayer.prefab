@@ -17,6 +17,7 @@ GameObject:
   - component: {fileID: 6491217117618966888}
   - component: {fileID: 6950008976574858678}
   - component: {fileID: 781650299689318018}
+  - component: {fileID: 7796911800372876484}
   m_Layer: 0
   m_Name: SnitchPlayer
   m_TagString: Snitch
@@ -302,3 +303,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::DepthIndicator
   shadowPrefab: {fileID: 7736886328241760671, guid: 627391bf45bfbca4294f497f329ddbbb, type: 3}
   showTetherLine: 0
+  baseShadowScale: 1
+--- !u!114 &7796911800372876484
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3669509134746835230}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 68135b3e59c94324896e5a423dab6645, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PowerUpReceiver

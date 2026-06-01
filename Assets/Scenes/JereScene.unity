@@ -299,8 +299,8 @@ MonoBehaviour:
     m_Bits: 1
   m_VolumeTrigger: {fileID: 0}
   m_VolumeFrameworkUpdateModeOption: 2
-  m_RenderPostProcessing: 0
-  m_Antialiasing: 0
+  m_RenderPostProcessing: 1
+  m_Antialiasing: 1
   m_AntialiasingQuality: 2
   m_StopNaN: 0
   m_Dithering: 0
@@ -335,11 +335,11 @@ MonoBehaviour:
   targets: []
   isometricRotation: {x: 45, y: 0, z: 0}
   offset: {x: 0, y: 20, z: -20}
-  smoothTime: 0.5
+  smoothTime: 0.1
   minZoom: 10
   maxZoom: 25
   zoomPadding: 4
-  zoomSmoothTime: 0.5
+  zoomSmoothTime: 0.1
 --- !u!114 &224097980
 MonoBehaviour:
   m_ObjectHideFlags: 0

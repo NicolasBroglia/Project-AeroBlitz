@@ -1,7 +1,8 @@
-using System.Text;
+using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
+using System.Text;
 using TMPro;
+using UnityEngine;
 
 public class UIManager : MonoBehaviour
 {
@@ -83,12 +84,17 @@ public class UIManager : MonoBehaviour
     public void ShowNotification(string message)
     {
         if (!notificationText.gameObject.activeSelf) notificationText.gameObject.SetActive(true);
+        
+        //Restore opacity
+        Color c = notificationText.color;
+        notificationText.color = new Color(c.r, c.g, c.b, 1f);
+
         notificationText.text = message;
     }
 
-    public void HideNotification()
+    public void HideNotification(float seconds, float fadeDuration = 0f)
     {
-        if (notificationText.gameObject.activeSelf) notificationText.gameObject.SetActive(false);
+        StartCoroutine(ClearNotificationAfter(seconds, fadeDuration));
     }
 
     public void ShowClashTimer(float timeRemaining)
@@ -100,5 +106,35 @@ public class UIManager : MonoBehaviour
     public void HideClashTimer()
     {
         if (clashTimerText.gameObject.activeSelf) clashTimerText.gameObject.SetActive(false);
+    }
+
+    private IEnumerator ClearNotificationAfter(float seconds, float fadeDuration = 0f)
+    {
+        // 1. Esperamos el tiempo que el texto debe estar visible
+        yield return new WaitForSeconds(seconds);
+
+        if (notificationText.gameObject.activeSelf)
+        {
+            // 2. Solo ejecutamos la animación si pidieron un fade mayor a 0 segundos
+            if (fadeDuration > 0f)
+            {
+                float currentTime = 0f;
+                Color originalColor = notificationText.color;
+
+                while (currentTime < fadeDuration)
+                {
+                    currentTime += Time.deltaTime;
+
+                    // Calculamos el nuevo Alpha. Al estar dentro del IF, nos aseguramos de que fadeDuration nunca sea 0
+                    float alpha = Mathf.Lerp(1f, 0f, currentTime / fadeDuration);
+                    notificationText.color = new Color(originalColor.r, originalColor.g, originalColor.b, alpha);
+
+                    yield return null;
+                }
+            }
+
+            // 3. Apagamos el texto (haya habido fade o no)
+            notificationText.gameObject.SetActive(false);
+        }
     }
 }

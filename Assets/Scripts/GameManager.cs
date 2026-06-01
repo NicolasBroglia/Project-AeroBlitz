@@ -285,7 +285,7 @@ public class GameManager : MonoBehaviour
     private IEnumerator StartCountdownRoutine()
     {
         //UI clears the screen before countdown
-        UIManager.Instance.HideNotification();
+        UIManager.Instance.HideNotification(0);
 
         ChangeState(GameState.Countdown);
         SpawnPlayers();
@@ -330,8 +330,8 @@ public class GameManager : MonoBehaviour
         }
 
         //UI notifies the winner
-        UIManager.Instance.ShowNotification($"<color=green>WINNER: Device {winnerID} with {highestTime:F1} seconds!</color>"); 
-        StartCoroutine(ClearNotificationAfter(5f));
+        UIManager.Instance.ShowNotification($"<color=green>WINNER: Device {winnerID} with {highestTime:F1} seconds!</color>");
+        UIManager.Instance.HideNotification(5);
 
         Debug.Log($"============== MATCH OVER ==============");
         Debug.Log($"WINNER: Device {winnerID} with {highestTime:F1} seconds!");
@@ -531,7 +531,7 @@ public class GameManager : MonoBehaviour
             //UI notifies snitch scaped
             UIManager.Instance.ShowNotification("<color=yellow>¡THE SNITCH GOT AWAY!</color>");
             //Hide after 2s
-            StartCoroutine(ClearNotificationAfter(2f));
+            UIManager.Instance.HideNotification(2);
         }
 
         clashingHunter = null;
@@ -587,14 +587,6 @@ public class GameManager : MonoBehaviour
     public List<int> GetConnectedDevices() { return connectedDevices; }
     #endregion
 
-    #region UI
-    private IEnumerator ClearNotificationAfter(float seconds)
-    {
-        yield return new WaitForSeconds(seconds);
-        UIManager.Instance.HideNotification();
-    }
-
-    #endregion
 
     #region Debug & Editor GUI
 

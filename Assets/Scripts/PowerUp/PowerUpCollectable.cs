@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 [RequireComponent(typeof(Collider))]
@@ -52,8 +53,12 @@ public class PowerUpCollectable : MonoBehaviour
 
         if (receiver != null)
         {
+            UIManager.Instance.ShowNotification($"<color=blue>¡ {powerUpData.powerUpName} !</color>");
+            UIManager.Instance.HideNotification(0, 1f);
+
             receiver.ApplyPowerUp(powerUpData);
             Destroy(gameObject);
         }
     }
+
 }

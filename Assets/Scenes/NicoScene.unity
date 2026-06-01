@@ -750,7 +750,7 @@ MonoBehaviour:
   - {fileID: 761642538}
   - {fileID: 1389513280}
   debugSinglePlayer: 0
-  offlineMode: 1
+  offlineMode: 0
   offlinePlayerCount: 5
   showDebugGUI: 1
   connectedDevices: 
@@ -1715,7 +1715,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0440c083614189340a3193a8a21c3739, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::InputManager
-  offlineKeyboard: 1
+  offlineKeyboard: 0
 --- !u!4 &1443539869
 Transform:
   m_ObjectHideFlags: 0

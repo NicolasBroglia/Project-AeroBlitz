@@ -82,18 +82,21 @@ public class GameManager : MonoBehaviour
     {
         if (offlineMode)
         {
-            // Instantly fake 'N' connected phones and skip the Lobby
+            // Instantly fake 'N' connected phones
             for (int i = 0; i < offlinePlayerCount; i++)
             {
                 connectedDevices.Add(i);
 
-                // --- ADD THIS: Assign colors to offline bots ---
                 deviceColors[i] = availableColors[nextColorIndex % availableColors.Length];
                 nextColorIndex++;
             }
-            StartMatchInit();
+
+            Debug.Log($"Offline mode generated {offlinePlayerCount} players. Waiting in Lobby.");
         }
-        else ChangeState(GameState.Lobby);
+
+        // ALWAYS start in the Lobby, waiting for the Start Match button, 
+        // regardless of whether we are online or offline!
+        ChangeState(GameState.Lobby);
     }
 
     [ContextMenu("DEBUG: Force Hunter Tag Win")]
@@ -128,23 +131,38 @@ public class GameManager : MonoBehaviour
 
             int requiredPlayers = debugSinglePlayer ? 1 : 2;
 
-            if (CurrentState == GameState.Lobby && connectedDevices.Count >= requiredPlayers)
+            // If we are in an Active Match, drop them in dynamically (we will write this next!)
+            if (CurrentState == GameState.ActiveMatch)
             {
-                StartMatchInit();
-            }
-            else if (CurrentState == GameState.ActiveMatch)
-            {
-                SpawnPlayers();
-                WakeUpPlayers(); // <--- THIS FIXES THE FREEZE
+                SpawnSinglePlayerAsHunter(deviceId);
             }
             else if (CurrentState == GameState.Countdown)
             {
-                // If they join during the countdown, just spawn them. 
-                // The coroutine will wake them up naturally in a few seconds.
+                // If they join during the 3..2..1 countdown, just re-rack the spawn for everyone
                 SpawnPlayers();
             }
+
+            // Notice: If CurrentState == Lobby, we do NOTHING. They just sit in the list!
         }
     }
+    // Jere's UI Button will call this method
+    public void RequestStartMatch()
+    {
+        if (CurrentState != GameState.Lobby) return;
+
+        int requiredPlayers = debugSinglePlayer ? 1 : 2;
+
+        if (connectedDevices.Count >= requiredPlayers)
+        {
+            Debug.Log("Lobby ready! Starting match...");
+            StartMatchInit();
+        }
+        else
+        {
+            Debug.LogWarning($"Not enough players! Need at least {requiredPlayers}.");
+        }
+    }
+
 
     [ContextMenu("DEBUG: Simulate New Phone Connecting")]
     public void DebugConnectPhone()
@@ -348,6 +366,45 @@ public class GameManager : MonoBehaviour
             cam.SnapToTargets();
         }
     }
+    private void SpawnSinglePlayerAsHunter(int newDeviceID)
+    {
+        // 1. Pick a random spawn point for the late-joiner
+        Transform chosenSpawn = snitchSpawnPoint; // Fallback
+        if (hunterSpawnPoints.Length > 0)
+        {
+            chosenSpawn = hunterSpawnPoints[Random.Range(0, hunterSpawnPoints.Length)];
+        }
+
+        // 2. Calculate the rotation to face the center
+        Vector3 directionToCenter = snitchSpawnPoint.position - chosenSpawn.position;
+        directionToCenter.y = 0f;
+        Quaternion spawnRotation = directionToCenter != Vector3.zero
+            ? Quaternion.LookRotation(directionToCenter)
+            : Quaternion.identity;
+
+        // 3. Spawn and Setup
+        GameObject hunter = Instantiate(hunterPrefab, chosenSpawn.position, spawnRotation);
+        hunter.GetComponent<InputSystemManager>().deviceID = newDeviceID;
+        ApplyColorToPlayer(hunter, newDeviceID);
+
+        activePlayers.Add(hunter);
+
+        // 4. Instantly wake them up (Skip the idle/countdown phase)
+        if (hunter.TryGetComponent<HunterController>(out var controller))
+        {
+            controller.ChangeState(HunterController.HunterState.Chasing);
+        }
+
+        // 5. Add them to the live camera targets without snapping
+        DynamicCamera cam = FindAnyObjectByType<DynamicCamera>();
+        if (cam != null)
+        {
+            cam.targets.Add(hunter.transform);
+        }
+
+        Debug.Log($"Device {newDeviceID} dropped in mid-match as a Hunter!");
+    }
+
     private void ApplyColorToPlayer(GameObject player, int deviceID)
     {
         if (deviceColors.TryGetValue(deviceID, out Color assignedColor))
@@ -478,6 +535,15 @@ public class GameManager : MonoBehaviour
                 GUILayout.Label($"<color=#{ColorUtility.ToHtmlStringRGB(hColor)}>▷ DEVICE {hunterID} [HUNTER]</color> - Score: {GetPlayerScore(hunterID):F1}s");
             }
         }
+        if (CurrentState == GameState.Lobby)
+        {
+            GUILayout.Space(10);
+            if (GUILayout.Button("START MATCH (DEBUG)", GUILayout.Height(40)))
+            {
+                RequestStartMatch();
+            }
+        }
+
         GUILayout.EndArea();
     }
 #endif

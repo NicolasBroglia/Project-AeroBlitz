@@ -8,6 +8,9 @@ public class DepthIndicator : MonoBehaviour
     [Header("Settings")]
     [Tooltip("Optional: Drop a flat 2D Sprite prefab here to act as a shadow")]
     [SerializeField] private GameObject shadowPrefab;
+    
+    [Tooltip("Selecciona la capa que corresponde al piso de tu mapa")]
+    [SerializeField] private LayerMask floorLayerMask;
 
     [Tooltip("If false, the connecting line will be invisible during gameplay.")]
     [SerializeField] private bool showTetherLine = false;
@@ -28,6 +31,7 @@ public class DepthIndicator : MonoBehaviour
 
     private void Awake()
     {
+        floorLayerMask = LayerMask.GetMask("Floor");
         InitializeTether();
         InitializeShadow();
     }
@@ -93,12 +97,12 @@ public class DepthIndicator : MonoBehaviour
     {
         Vector3 rayOrigin = playerPos + (Vector3.down * 0.5f);
 
-        if (Physics.Raycast(rayOrigin, Vector3.down, out floorHit, 100f))
+        // Ahora el Raycast es ultra liviano porque ignora el 90% de los objetos
+        if (Physics.Raycast(rayOrigin, Vector3.down, out floorHit, 100f, floorLayerMask))
         {
             return floorHit.point;
         }
 
-        // Fallback if the raycast somehow misses the floor
         return new Vector3(playerPos.x, -10f, playerPos.z);
     }
 

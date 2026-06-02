@@ -954,7 +954,7 @@ Camera:
     y: 0
     width: 1
     height: 1
-  near clip plane: 0.3
+  near clip plane: 0.01
   far clip plane: 1000
   field of view: 60
   orthographic: 0
@@ -2574,8 +2574,6 @@ MonoBehaviour:
   - {fileID: 761642538}
   - {fileID: 1389513280}
   clashDuration: 2.5
-  clashingHunter: {fileID: 0}
-  clashingSnitch: {fileID: 0}
   connectedDevices: 
   activePlayers: []
   availableColors:
@@ -4424,7 +4422,7 @@ GameObject:
   - component: {fileID: 1213968802}
   - component: {fileID: 1213968801}
   - component: {fileID: 1213968800}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: r
   m_TagString: Untagged
   m_Icon: {fileID: 0}

@@ -41,13 +41,20 @@ public class DynamicCamera : MonoBehaviour
 
         // Force true Isometric orthographic projection
         cam.orthographic = true;
+        cam.nearClipPlane = -50f;
         transform.rotation = Quaternion.Euler(isometricRotation);
     }
 
     private void LateUpdate()
     {
-        // Instantly scrub destroyed players
-        targets.RemoveAll(t => t == null);
+        for (int i = targets.Count - 1; i >= 0; i--)
+        {
+            if (targets[i] == null)
+            {
+                targets.RemoveAt(i);
+            }
+        }
+
         if (targets.Count == 0) return;
 
         MoveCamera();
@@ -60,7 +67,13 @@ public class DynamicCamera : MonoBehaviour
 
     public void SnapToTargets()
     {
-        targets.RemoveAll(t => t == null);
+        for (int i = targets.Count - 1; i >= 0; i--)
+        {
+            if (targets[i] == null)
+            {
+                targets.RemoveAt(i);
+            }
+        }
         if (targets.Count == 0) return;
 
         Vector3 centerPoint = GetCenterPoint();

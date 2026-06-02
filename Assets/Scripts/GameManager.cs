@@ -44,8 +44,10 @@ public class GameManager : MonoBehaviour
     private int hunterClashScore = 0;
     private int snitchClashScore = 0;
     // Temporarily holds the players during the minigame
-    [SerializeField] private HunterController clashingHunter;
-    [SerializeField] private SnitchController clashingSnitch;
+    private HunterController clashingHunter;
+    private SnitchController clashingSnitch;
+    private InputSystemManager clashingHunterInput;
+    private InputSystemManager clashingSnitchInput;
 
     [Header("Player Tracking & Colors")]
     [SerializeField] private List<int> connectedDevices = new List<int>();
@@ -139,16 +141,14 @@ public class GameManager : MonoBehaviour
         else if (CurrentState == GameState.Clash)
         {
             clashTimer -= Time.deltaTime;
-
-            //UI updates clash timer on screen
             UIManager.Instance.ShowClashTimer(clashTimer);
 
-            // Constantly poll for mash inputs from both players
-            if (clashingHunter != null && clashingHunter.GetComponent<InputSystemManager>().GetMash())
+            // Ahora leemos la variable guardada en vez de hacer GetComponent
+            if (clashingHunterInput != null && clashingHunterInput.GetMash())
             {
                 hunterClashScore++;
             }
-            if (clashingSnitch != null && clashingSnitch.GetComponent<InputSystemManager>().GetMash())
+            if (clashingSnitchInput != null && clashingSnitchInput.GetMash())
             {
                 snitchClashScore++;
             }
@@ -488,6 +488,10 @@ public class GameManager : MonoBehaviour
         // 1. SET THESE FIRST so the ChangeState broadcast can read them
         clashingHunter = hunter;
         clashingSnitch = snitch;
+
+        // CACHEAMOS LAS REFERENCIAS ACÁ
+        clashingHunterInput = clashingHunter.GetComponent<InputSystemManager>();
+        clashingSnitchInput = clashingSnitch.GetComponent<InputSystemManager>();
 
         // 2. NOW change the state and broadcast
         ChangeState(GameState.Clash);

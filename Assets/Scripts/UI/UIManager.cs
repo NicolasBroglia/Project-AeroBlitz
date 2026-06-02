@@ -24,6 +24,8 @@ public class UIManager : MonoBehaviour
     [SerializeField] private GameObject lobbyPanel; // We will create this in the Unity Editor
     [SerializeField] private GameObject offlineStartButton;    
 
+    [Header("Timer optimization")]
+    private int lastDisplayedTime = -1;
     void Awake()
     {
         if (Instance == null) Instance = this;
@@ -50,7 +52,18 @@ public class UIManager : MonoBehaviour
 
     public void UpdateTimerDisplay(float timeRemaining)
     {
-        timerText.text = Mathf.CeilToInt(timeRemaining).ToString();
+        // Redondeamos el float a un número entero
+        int currentSeconds = Mathf.CeilToInt(timeRemaining);
+
+        // Chequeamos: ¿El número nuevo es distinto al que ya está en pantalla?
+        if (currentSeconds != lastDisplayedTime)
+        {
+            // Solo si cambió, actualizamos la variable de control...
+            lastDisplayedTime = currentSeconds;
+
+            // ...y generamos el string (esta es la línea pesada, ahora se ejecuta 1 vez por segundo en vez de 60)
+            timerText.text = currentSeconds.ToString();
+        }
     }
 
     public void UpdateScoresDisplay(int currentSnitchId, List<int> connectedDevices)

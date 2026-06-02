@@ -267,7 +267,6 @@ public class GameManager : MonoBehaviour
 
         if (connectedDevices.Count >= requiredPlayers)
         {
-            Debug.Log("Lobby ready! Starting match...");
             StartMatchInit();
         }
         else

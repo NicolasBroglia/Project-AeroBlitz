@@ -32,6 +32,20 @@ public class DepthIndicator : MonoBehaviour
         InitializeShadow();
     }
 
+    // --- AGREGAR ESTOS DOS MÉTODOS ---
+    private void OnEnable()
+    {
+        // Cuando el Power-Up se prende (sale del pool), prendemos la sombra
+        if (activeShadow != null) activeShadow.SetActive(true);
+    }
+
+    private void OnDisable()
+    {
+        // Cuando el Power-Up se apaga (vuelve al pool), apagamos la sombra
+        if (activeShadow != null) activeShadow.SetActive(false);
+    }
+    // ---------------------------------
+
     private void LateUpdate()
     {
         Vector3 playerPos = transform.position;
@@ -47,7 +61,6 @@ public class DepthIndicator : MonoBehaviour
     }
 
     #endregion
-
     #region Setup
 
     private void InitializeTether()

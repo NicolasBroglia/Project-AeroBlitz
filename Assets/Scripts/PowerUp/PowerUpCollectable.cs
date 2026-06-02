@@ -6,26 +6,33 @@ public class PowerUpCollectable : MonoBehaviour
 {
     public PowerUpSO powerUpData;
 
-    [Tooltip("Tiempo en segundos antes de que el power-up se destruya automáticamente")]
+    [Tooltip("Tiempo en segundos antes de que el power-up se apague automáticamente")]
     public float lifeTime = 10f;
 
     [Header("Visual Effects")]
-    [Tooltip("Velocidad de giro en grados por segundo")]
     public float rotationSpeed = 90f;
-    [Tooltip("Distancia máxima que sube y baja desde su centro")]
     public float floatAmplitude = 0.25f;
-    [Tooltip("Qué tan rápido hace el ciclo de subir y bajar")]
     public float floatFrequency = 1f;
 
-    // Guardamos la posición donde apareció para que el flote sea relativo a ese punto
     private Vector3 startPos;
+    private Coroutine disableRoutine;
 
-    private void Start()
+    // Usamos OnEnable en lugar de Start para que se ejecute cada vez que el Pool lo activa
+    private void OnEnable()
     {
+        // Actualizamos la posición inicial a donde sea que el Manager lo haya teletransportado
         startPos = transform.position;
 
-        // Autodestrucción a los 10 segundos
-        Destroy(gameObject, lifeTime);
+        // Reiniciamos la corrutina de apagado automático
+        if (disableRoutine != null) StopCoroutine(disableRoutine);
+        disableRoutine = StartCoroutine(DisableAfterTime());
+    }
+
+    private IEnumerator DisableAfterTime()
+    {
+        yield return new WaitForSeconds(lifeTime);
+
+        gameObject.SetActive(false);
     }
 
     private void Update()
@@ -35,15 +42,8 @@ public class PowerUpCollectable : MonoBehaviour
 
     private void VisualRotation()
     {
-        // 1. Rotación continua
-        // Usamos Space.World para que gire siempre sobre el eje vertical del mapa
         transform.Rotate(Vector3.up * rotationSpeed * Time.deltaTime, Space.World);
-
-        // 2. Flote suave (Bobbing)
-        // Usamos la función Seno basada en el tiempo para obtener un valor suave entre -1 y 1
         float newY = startPos.y + Mathf.Sin(Time.time * Mathf.PI * floatFrequency) * floatAmplitude;
-
-        // Aplicamos la nueva posición manteniendo la X y la Z intactas
         transform.position = new Vector3(startPos.x, newY, startPos.z);
     }
 
@@ -57,8 +57,9 @@ public class PowerUpCollectable : MonoBehaviour
             UIManager.Instance.HideNotification(0, 1f);
 
             receiver.ApplyPowerUp(powerUpData);
-            Destroy(gameObject);
+
+            // Apagamos el objeto y lo dejamos disponible para el Pool
+            gameObject.SetActive(false);
         }
     }
-
 }

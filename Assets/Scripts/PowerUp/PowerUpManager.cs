@@ -5,20 +5,28 @@ using UnityEngine;
 public class PowerUpManager : MonoBehaviour
 {
     [Header("Spawn Settings")]
-    [Tooltip("Tiempo en segundos entre cada intento de aparición")]
     [SerializeField] private float spawnInterval = 5f;
-    [Tooltip("Cantidad máxima de power-ups que pueden coexistir en la arena")]
     [SerializeField] private int maxActivePowerUps = 3;
 
     [Header("References")]
-    [Tooltip("El prefab genérico que tiene el script PowerUpCollectable")]
     [SerializeField] private GameObject powerUpPrefab;
-    [Tooltip("Los lugares físicos en la arena donde pueden aparecer")]
     [SerializeField] private Transform[] spawnPoints;
-    [Tooltip("La lista de los Scriptable Objects que creaste")]
     [SerializeField] private PowerUpSO[] availablePowerUps;
 
-    private List<GameObject> activePowerUps = new List<GameObject>();
+    //Object Pool
+    private List<GameObject> powerUpPool = new List<GameObject>();
+    private Coroutine spawnRoutine;
+
+    private void Awake()
+    {
+        // POOLING: Instanciamos los power-ups necesarios al inicio y los dejamos apagados
+        for (int i = 0; i < maxActivePowerUps; i++)
+        {
+            GameObject obj = Instantiate(powerUpPrefab);
+            obj.SetActive(false);
+            powerUpPool.Add(obj);
+        }
+    }
 
     private void OnEnable()
     {
@@ -28,22 +36,30 @@ public class PowerUpManager : MonoBehaviour
     {
         GameManager.OnGameStateChanged -= PowerUpInit;
     }
-    private void Start()
-    {
-
-    }
 
     private void PowerUpInit(GameState gameState)
     {
-        if (gameState != GameState.ActiveMatch) return;
-
-        if (spawnPoints.Length == 0 || availablePowerUps.Length == 0 || powerUpPrefab == null)
+        if (gameState == GameState.ActiveMatch)
         {
-            Debug.LogWarning("PowerUpManager: Missing references.");
-        }
+            if (spawnPoints.Length == 0 || availablePowerUps.Length == 0 || powerUpPrefab == null)
+            {
+                Debug.LogWarning("PowerUpManager: Missing references.");
+                return;
+            }
 
-        StartCoroutine(SpawnRoutine());
-        Debug.Log("PowerUpManager intialized");
+            if (spawnRoutine != null) StopCoroutine(spawnRoutine);
+            spawnRoutine = StartCoroutine(SpawnRoutine());
+            Debug.Log("PowerUpManager initialized");
+        }
+        else
+        {
+            // Seguridad: Si el juego termina o vuelve al lobby, apagamos todo y frenamos el spawner
+            if (spawnRoutine != null) StopCoroutine(spawnRoutine);
+            foreach (var obj in powerUpPool)
+            {
+                if (obj.activeSelf) obj.SetActive(false);
+            }
+        }
     }
 
     private IEnumerator SpawnRoutine()
@@ -52,43 +68,59 @@ public class PowerUpManager : MonoBehaviour
         {
             yield return new WaitForSeconds(spawnInterval);
 
-            // 1. Limpiamos la lista quitando los objetos que ya fueron agarrados (destruidos)
-            activePowerUps.RemoveAll(item => item == null);
+            // Contamos cuántos de nuestros power-ups están actualmente prendidos en la arena
+            int activeCount = 0;
+            foreach (var obj in powerUpPool)
+            {
+                if (obj.activeSelf) activeCount++;
+            }
 
-            // 2. Si todavía hay lugar en el mapa, intentamos crear uno nuevo
-            if (activePowerUps.Count < maxActivePowerUps)
+            // Si hay menos del máximo permitido, buscamos uno del pool para reciclar
+            if (activeCount < maxActivePowerUps)
             {
                 SpawnPowerUp();
-                Debug.Log("PowerUp spawned");
+                Debug.Log("PowerUp spawned from pool");
             }
         }
     }
 
     private void SpawnPowerUp()
     {
-        // Elegimos un punto de aparición que no esté ocupado
+        // 1. Buscamos el primer objeto del pool que esté inactivo
+        GameObject powerUpToSpawn = null;
+        foreach (var obj in powerUpPool)
+        {
+            if (!obj.activeSelf)
+            {
+                powerUpToSpawn = obj;
+                break; // Encontramos uno, cortamos la búsqueda
+            }
+        }
+
+        if (powerUpToSpawn == null) return;
+
+        // 2. Buscamos un punto libre en el mapa
         Transform randomSpawnPoint = GetFreeSpawnPoint();
 
         if (randomSpawnPoint != null)
         {
-            // Elegimos un efecto al azar de nuestra bolsa de Scriptable Objects
             PowerUpSO randomData = availablePowerUps[Random.Range(0, availablePowerUps.Length)];
 
-            // Instanciamos la "caja física" en el mapa
-            GameObject newPowerUp = Instantiate(powerUpPrefab, randomSpawnPoint.position, powerUpPrefab.transform.rotation);
+            // 3. Teletransportamos el objeto reciclado a la nueva posición
+            powerUpToSpawn.transform.position = randomSpawnPoint.position;
+            powerUpToSpawn.transform.rotation = powerUpPrefab.transform.rotation;
 
-            // Le inyectamos los datos del efecto al script de la caja
-            PowerUpCollectable collectable = newPowerUp.GetComponent<PowerUpCollectable>();
+            // 4. Le inyectamos los datos nuevos
+            PowerUpCollectable collectable = powerUpToSpawn.GetComponent<PowerUpCollectable>();
             if (collectable != null)
             {
                 collectable.powerUpData = randomData;
             }
 
-            // Aplicamos un color distinto para poder testear fácilmente
-            ApplyVisualFeedback(newPowerUp, randomData.type);
+            ApplyVisualFeedback(powerUpToSpawn, randomData.type);
 
-            // Registramos la caja en nuestra lista
-            activePowerUps.Add(newPowerUp);
+            // 5. Lo "Encendemos" (Esto dispara automáticamente el OnEnable del Collectable)
+            powerUpToSpawn.SetActive(true);
         }
     }
 
@@ -96,13 +128,13 @@ public class PowerUpManager : MonoBehaviour
     {
         List<Transform> freePoints = new List<Transform>();
 
-        // Filtramos los puntos que tienen un power-up activo a menos de 1 metro
         foreach (Transform sp in spawnPoints)
         {
             bool isOccupied = false;
-            foreach (GameObject active in activePowerUps)
+            foreach (GameObject obj in powerUpPool)
             {
-                if (active != null && Vector3.Distance(sp.position, active.transform.position) < 1f)
+                // Solo chequeamos colisiones con los power-ups que están activos
+                if (obj.activeSelf && Vector3.Distance(sp.position, obj.transform.position) < 1f)
                 {
                     isOccupied = true;
                     break;
@@ -115,13 +147,12 @@ public class PowerUpManager : MonoBehaviour
             }
         }
 
-        // Si hay al menos un punto libre, devolvemos uno al azar
         if (freePoints.Count > 0)
         {
             return freePoints[Random.Range(0, freePoints.Count)];
         }
 
-        return null; // Todo está ocupado
+        return null;
     }
 
     private void ApplyVisualFeedback(GameObject powerUpObj, PowerUpType type)

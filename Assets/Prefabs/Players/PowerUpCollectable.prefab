@@ -15,7 +15,7 @@ GameObject:
   - component: {fileID: 4729487619238028567}
   - component: {fileID: -4029897229480266306}
   - component: {fileID: 457772536254685109}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: PowerUpCollectable
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -257,5 +257,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DepthIndicator
   shadowPrefab: {fileID: 7736886328241760671, guid: 627391bf45bfbca4294f497f329ddbbb, type: 3}
+  floorLayerMask:
+    serializedVersion: 2
+    m_Bits: 0
   showTetherLine: 0
   baseShadowScale: 2.5

@@ -1,5 +1,7 @@
 using UnityEngine;
 
+// This tag forces Unity to run this script AFTER everything else (like DynamicCamera) has finished moving!
+[DefaultExecutionOrder(100)]
 [RequireComponent(typeof(Camera))]
 public class CameraCage : MonoBehaviour
 {
@@ -8,15 +10,15 @@ public class CameraCage : MonoBehaviour
     [Header("Cage Settings")]
     [Tooltip("How tall the invisible walls are")]
     public float wallHeight = 50f;
-    [Tooltip("How thick the walls are (keeps players from glitching through at high speeds)")]
+    [Tooltip("How thick the walls are")]
     public float wallThickness = 10f;
+    [Tooltip("The MAX height players can fly. Calculates walls here so they can't fly over them.")]
+    public float maxFlightHeight = 4f; // <-- NEW: Fixes the 3D escape flaw
 
     private GameObject leftWall, rightWall, topWall, bottomWall;
     private BoxCollider leftCol, rightCol, topCol, bottomCol;
     private Camera cam;
-
-    // An invisible, infinite flat plane at Y=0 used for mathematical calculations
-    private Plane groundPlane;
+    private Plane calculationPlane;
 
     #endregion
 
@@ -25,7 +27,9 @@ public class CameraCage : MonoBehaviour
     void Start()
     {
         cam = GetComponent<Camera>();
-        groundPlane = new Plane(Vector3.up, Vector3.zero);
+
+        // Build the plane at the player's flight height, not the floor!
+        calculationPlane = new Plane(Vector3.up, new Vector3(0, maxFlightHeight, 0));
 
         BuildPhysicsCage();
     }
@@ -41,7 +45,6 @@ public class CameraCage : MonoBehaviour
 
     private void BuildPhysicsCage()
     {
-        // Build the 4 invisible physics walls when the game starts
         CreateEdgeWall(out leftWall, out leftCol, "CameraWall_Left");
         CreateEdgeWall(out rightWall, out rightCol, "CameraWall_Right");
         CreateEdgeWall(out topWall, out topCol, "CameraWall_Top");
@@ -51,9 +54,11 @@ public class CameraCage : MonoBehaviour
     private void CreateEdgeWall(out GameObject wallObj, out BoxCollider col, string name)
     {
         wallObj = new GameObject(name);
-
-        // We leave them unparented in the root of the scene so their rotation math stays pure
         col = wallObj.AddComponent<BoxCollider>();
+
+        Rigidbody rb = wallObj.AddComponent<Rigidbody>();
+        rb.isKinematic = true; // Makes it so gravity/pushes don't affect the wall
+        rb.interpolation = RigidbodyInterpolation.Interpolate; // Smooths out the movement
 
         PhysicsMaterial noFriction = new PhysicsMaterial("NoFriction");
         noFriction.dynamicFriction = 0f;
@@ -69,45 +74,80 @@ public class CameraCage : MonoBehaviour
 
     private void UpdateCageTransform()
     {
-        // 1. Calculate exactly where the 4 corners of the screen touch the floor
-        Vector3 bottomLeft = GetFloorPoint(new Vector3(0, 0, 0));
-        Vector3 topLeft = GetFloorPoint(new Vector3(0, 1, 0));
-        Vector3 bottomRight = GetFloorPoint(new Vector3(1, 0, 0));
-        Vector3 topRight = GetFloorPoint(new Vector3(1, 1, 0));
+        // Add a slight padding so the players bounce *just* before touching the edge of the screen
+        float pad = 0.02f;
 
-        // 2. Snap the physics walls perfectly between those 4 points
+        Vector3 bottomLeft = GetPlanePoint(new Vector3(pad, pad, 0));
+        Vector3 topLeft = GetPlanePoint(new Vector3(pad, 1 - pad, 0));
+        Vector3 bottomRight = GetPlanePoint(new Vector3(1 - pad, pad, 0));
+        Vector3 topRight = GetPlanePoint(new Vector3(1 - pad, 1 - pad, 0));
+
         UpdateWall(leftWall.transform, leftCol, bottomLeft, topLeft);
         UpdateWall(rightWall.transform, rightCol, bottomRight, topRight);
         UpdateWall(topWall.transform, topCol, topLeft, topRight);
         UpdateWall(bottomWall.transform, bottomCol, bottomLeft, bottomRight);
     }
 
-    private Vector3 GetFloorPoint(Vector3 viewportPoint)
+    private Vector3 GetPlanePoint(Vector3 viewportPoint)
     {
-        // Shoots a mathematical ray from the camera lens through the corner of the screen
         Ray ray = cam.ViewportPointToRay(viewportPoint);
-        if (groundPlane.Raycast(ray, out float distance))
+        if (calculationPlane.Raycast(ray, out float distance))
         {
-            return ray.GetPoint(distance); // Returns the exact X,Y,Z coordinate on the floor
+            return ray.GetPoint(distance);
         }
         return Vector3.zero;
     }
 
     private void UpdateWall(Transform wallTrans, BoxCollider col, Vector3 p1, Vector3 p2)
     {
-        // Find the exact middle point between the two screen corners
         Vector3 centerPoint = (p1 + p2) / 2f;
 
-        // Move the wall to the middle, and sink it slightly into the floor so players can't dash under it
-        wallTrans.position = centerPoint + (Vector3.up * (wallHeight / 2f - 5f));
+        // Center the wall exactly on the flight height
+        centerPoint.y = maxFlightHeight;
 
-        // Rotate the wall so it perfectly connects Corner 1 and Corner 2
+        wallTrans.position = centerPoint;
         wallTrans.rotation = Quaternion.LookRotation(p2 - p1);
 
-        // Stretch the collider to cover the entire distance
         float length = Vector3.Distance(p1, p2);
-        col.size = new Vector3(wallThickness, wallHeight, length);
+
+        // Add extra padding to the length so the corners overlap securely
+        col.size = new Vector3(wallThickness, wallHeight, length + 10f);
     }
+
+    #endregion
+
+    #region Editor Debug
+
+#if UNITY_EDITOR
+    private void OnDrawGizmos()
+    {
+        if (!Application.isPlaying)
+        {
+            cam = GetComponent<Camera>();
+            calculationPlane = new Plane(Vector3.up, new Vector3(0, maxFlightHeight, 0));
+        }
+
+        if (cam == null) return;
+
+        float pad = 0.02f;
+        Vector3 bottomLeft = GetPlanePoint(new Vector3(pad, pad, 0));
+        Vector3 topLeft = GetPlanePoint(new Vector3(pad, 1 - pad, 0));
+        Vector3 topRight = GetPlanePoint(new Vector3(1 - pad, 1 - pad, 0));
+        Vector3 bottomRight = GetPlanePoint(new Vector3(1 - pad, pad, 0));
+
+        Gizmos.color = Color.red;
+        Gizmos.DrawLine(bottomLeft, topLeft);
+        Gizmos.DrawLine(topLeft, topRight);
+        Gizmos.DrawLine(topRight, bottomRight);
+        Gizmos.DrawLine(bottomRight, bottomLeft);
+
+        Gizmos.color = new Color(1f, 0f, 0f, 0.2f);
+        Vector3 center = (bottomLeft + topRight) / 2f;
+        center.y = maxFlightHeight;
+        Vector3 size = new Vector3(Vector3.Distance(bottomLeft, bottomRight), wallHeight, Vector3.Distance(bottomLeft, topLeft));
+        Gizmos.DrawWireCube(center, size);
+    }
+#endif
 
     #endregion
 }

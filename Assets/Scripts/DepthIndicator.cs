@@ -8,21 +8,25 @@ public class DepthIndicator : MonoBehaviour
     [Header("Settings")]
     [Tooltip("Optional: Drop a flat 2D Sprite prefab here to act as a shadow")]
     [SerializeField] private GameObject shadowPrefab;
-    
+
     [Tooltip("Selecciona la capa que corresponde al piso de tu mapa")]
     [SerializeField] private LayerMask floorLayerMask;
 
     [Tooltip("If false, the connecting line will be invisible during gameplay.")]
     [SerializeField] private bool showTetherLine = false;
 
+    [Header("Adjustments")]
     [Tooltip("Multiplier to make the shadow bigger or smaller for this specific character.")]
     [SerializeField][Range(0.1f, 5f)] private float baseShadowScale = 1f;
 
+    [Tooltip("Use this to manually align the shadow if your 3D model's pivot is off-center.")]
+    [SerializeField] private Vector3 centerOffset = Vector3.zero;
+
+    [Tooltip("Stretch or thin the shadow. (X = Width, Y = Height/Length for 2D sprites)")]
+    [SerializeField] private Vector3 shadowProportions = Vector3.one;
+
     private LineRenderer tetherLine;
     private GameObject activeShadow;
-    private Quaternion baseShadowRotation;
-
-    // Cache the hit data so we don't need to pass it around constantly
     private RaycastHit floorHit;
 
     #endregion
@@ -36,27 +40,23 @@ public class DepthIndicator : MonoBehaviour
         InitializeShadow();
     }
 
-    // --- AGREGAR ESTOS DOS MÉTODOS ---
     private void OnEnable()
     {
-        // Cuando el Power-Up se prende (sale del pool), prendemos la sombra
         if (activeShadow != null) activeShadow.SetActive(true);
     }
 
     private void OnDisable()
     {
-        // Cuando el Power-Up se apaga (vuelve al pool), apagamos la sombra
         if (activeShadow != null) activeShadow.SetActive(false);
     }
-    // ---------------------------------
 
     private void LateUpdate()
     {
-        Vector3 playerPos = transform.position;
-        Vector3 floorPos = CalculateFloorPosition(playerPos);
+        Vector3 trueCenter = transform.position + transform.TransformVector(centerOffset);
+        Vector3 floorPos = CalculateFloorPosition(trueCenter);
 
-        if (showTetherLine) UpdateTether(playerPos, floorPos);
-        if (activeShadow != null) UpdateShadow(playerPos, floorPos);
+        if (showTetherLine) UpdateTether(trueCenter, floorPos);
+        if (activeShadow != null) UpdateShadow(trueCenter, floorPos);
     }
 
     private void OnDestroy()
@@ -65,6 +65,7 @@ public class DepthIndicator : MonoBehaviour
     }
 
     #endregion
+
     #region Setup
 
     private void InitializeTether()
@@ -84,8 +85,7 @@ public class DepthIndicator : MonoBehaviour
         if (shadowPrefab != null)
         {
             activeShadow = Instantiate(shadowPrefab);
-            activeShadow.transform.SetParent(null); // Keep it strictly in world space
-            baseShadowRotation = activeShadow.transform.rotation;
+            activeShadow.transform.SetParent(null);
         }
     }
 
@@ -93,17 +93,16 @@ public class DepthIndicator : MonoBehaviour
 
     #region Math & Visual Updates
 
-    private Vector3 CalculateFloorPosition(Vector3 playerPos)
+    private Vector3 CalculateFloorPosition(Vector3 originPos)
     {
-        Vector3 rayOrigin = playerPos + (Vector3.down * 0.5f);
+        Vector3 rayOrigin = originPos + (Vector3.down * 0.5f);
 
-        // Ahora el Raycast es ultra liviano porque ignora el 90% de los objetos
         if (Physics.Raycast(rayOrigin, Vector3.down, out floorHit, 100f, floorLayerMask))
         {
             return floorHit.point;
         }
 
-        return new Vector3(playerPos.x, -10f, playerPos.z);
+        return new Vector3(originPos.x, -10f, originPos.z);
     }
 
     private void UpdateTether(Vector3 playerPos, Vector3 floorPos)
@@ -114,21 +113,35 @@ public class DepthIndicator : MonoBehaviour
 
     private void UpdateShadow(Vector3 playerPos, Vector3 floorPos)
     {
-        // Keep the shadow slightly above the physical floor to prevent Z-fighting
         activeShadow.transform.position = floorPos + (Vector3.up * 0.02f);
 
-        // Align the shadow with slopes/ramps
+        // --- UPGRADED: Read the parent object's rotation directly ---
+        Vector3 parentEuler = transform.eulerAngles;
+
+        // Force X to 90 to lay flat, but inherit Y and Z from the object itself
+        Quaternion inheritedRotation = Quaternion.Euler(90f, parentEuler.y, parentEuler.z);
+
+        // Tilt the rotation to match the floor slope
         if (floorHit.collider != null)
         {
-            activeShadow.transform.rotation = Quaternion.FromToRotation(Vector3.up, floorHit.normal) * baseShadowRotation;
+            Quaternion floorAlignment = Quaternion.FromToRotation(Vector3.up, floorHit.normal);
+            activeShadow.transform.rotation = floorAlignment * inheritedRotation;
+        }
+        else
+        {
+            activeShadow.transform.rotation = inheritedRotation;
         }
 
-        // Calculate the altitude shrink effect, then multiply it by your custom Inspector scale
+        // Apply Scaling & Proportions
         float altitude = playerPos.y - floorPos.y;
         float baseCalculation = Mathf.Clamp(1f - (altitude * 0.15f), 0.3f, 1f);
         float finalScale = baseCalculation * baseShadowScale;
 
-        activeShadow.transform.localScale = new Vector3(finalScale, finalScale, finalScale);
+        activeShadow.transform.localScale = new Vector3(
+            finalScale * shadowProportions.x,
+            finalScale * shadowProportions.y,
+            finalScale * shadowProportions.z
+        );
     }
 
     #endregion

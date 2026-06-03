@@ -172,9 +172,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SnitchController
   currentState: 0
   inputManager: {fileID: 0}
-  moveSpeed: 40
-  maxSpeed: 15
-  dashForce: 25
+  moveSpeed: 60
+  maxSpeed: 24
+  dashForce: 45
   dashCooldown: 1.5
   dashDuration: 0.2
   maxHeight: 15
@@ -302,6 +302,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DepthIndicator
   shadowPrefab: {fileID: 7736886328241760671, guid: 627391bf45bfbca4294f497f329ddbbb, type: 3}
+  floorLayerMask:
+    serializedVersion: 2
+    m_Bits: 0
   showTetherLine: 0
   baseShadowScale: 1
 --- !u!114 &7796911800372876484

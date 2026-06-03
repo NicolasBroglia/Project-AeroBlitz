@@ -162,10 +162,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::HunterController
   currentState: 0
   inputManager: {fileID: 0}
-  moveSpeed: 50
-  maxSpeed: 18
+  moveSpeed: 100
+  maxSpeed: 25
   rotationSpeed: 12
-  dashForce: 35
+  dashForce: 55
   dashCooldown: 3
   dashDuration: 0.25
   minHeight: 0.5
@@ -196,6 +196,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DepthIndicator
   shadowPrefab: {fileID: 7736886328241760671, guid: 627391bf45bfbca4294f497f329ddbbb, type: 3}
+  floorLayerMask:
+    serializedVersion: 2
+    m_Bits: 0
   showTetherLine: 0
   baseShadowScale: 2.5
 --- !u!120 &7397904432980778400

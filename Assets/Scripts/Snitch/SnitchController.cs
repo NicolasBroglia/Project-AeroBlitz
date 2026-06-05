@@ -27,6 +27,7 @@ public class SnitchController : MonoBehaviour
     [Header("Movement Settings")]
     [SerializeField] private float moveSpeed = 40f;
     [SerializeField] private float maxSpeed = 15f;
+    [SerializeField] private float rotationSpeed = 12f; // <-- ADDED THIS
 
     [Header("Dash Settings")]
     [SerializeField] private float dashForce = 25f;
@@ -85,6 +86,7 @@ public class SnitchController : MonoBehaviour
             if (canPlay)
             {
                 HandleMovement();
+                HandleRotation(); // <-- ADDED THIS
             }
             else
             {
@@ -140,6 +142,21 @@ public class SnitchController : MonoBehaviour
             {
                 rb.linearVelocity = rb.linearVelocity.normalized * maxSpeed;
             }
+        }
+    }
+
+    // <-- ADDED THIS ENTIRE METHOD -->
+    private void HandleRotation()
+    {
+        if (rb.linearVelocity.sqrMagnitude > 0.1f)
+        {
+            Quaternion targetRotation = Quaternion.LookRotation(rb.linearVelocity.normalized);
+            rb.MoveRotation(Quaternion.Slerp(rb.rotation, targetRotation, Time.fixedDeltaTime * rotationSpeed));
+        }
+        else
+        {
+            Quaternion flatRotation = Quaternion.Euler(0f, rb.rotation.eulerAngles.y, 0f);
+            rb.MoveRotation(Quaternion.Slerp(rb.rotation, flatRotation, Time.fixedDeltaTime * rotationSpeed));
         }
     }
 

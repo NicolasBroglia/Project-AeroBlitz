@@ -4993,8 +4993,6 @@ GameObject:
   - component: {fileID: 224097976}
   - component: {fileID: 224097975}
   - component: {fileID: 224097978}
-  - component: {fileID: 224097979}
-  - component: {fileID: 224097980}
   - component: {fileID: 224097981}
   m_Layer: 0
   m_Name: Main Camera
@@ -5121,41 +5119,6 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
---- !u!114 &224097979
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 224097974}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dfb5c94995dd8d049a9bbbc651c1e4e9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::DynamicCamera
-  targets: []
-  isometricRotation: {x: 45, y: 0, z: 0}
-  offset: {x: 0, y: 20, z: -20}
-  smoothTime: 0.1
-  minZoom: 10
-  maxZoom: 25
-  zoomPadding: 4
-  zoomSmoothTime: 0.1
---- !u!114 &224097980
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 224097974}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f96d2ff8f60eda94db23b80e5c1ab9cc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CameraCage
-  wallHeight: 50
-  wallThickness: 10
-  maxFlightHeight: 4
 --- !u!114 &224097981
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5175,11 +5138,11 @@ MonoBehaviour:
   smoothTime: 0.3
   isometricRotation: {x: 30, y: 45, z: 0}
   cameraDistance: 50
-  minZoom: 10
-  maxZoom: 25
+  minZoom: 20
+  maxZoom: 30
   zoomPadding: 4
-  zoomSmoothTime: 0.3
-  edgePadding: -0.05
+  zoomSmoothTime: 0.1
+  edgePadding: -0.01
 --- !u!1 &242465792
 GameObject:
   m_ObjectHideFlags: 0

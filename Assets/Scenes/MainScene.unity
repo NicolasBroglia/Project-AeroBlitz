@@ -13201,14 +13201,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GameManager
   matchDuration: 120
   currentMatchTimer: 0
-  hunterPrefab: {fileID: 8186502679140566490, guid: eded6d64c0d92cb40a33ad1abddad2a0, type: 3}
-  snitchPrefab: {fileID: 3669509134746835230, guid: fa87be2ac6c5ce8428893c9a90e8098c, type: 3}
-  snitchSpawnPoint: {fileID: 372786351}
-  hunterSpawnPoints:
-  - {fileID: 1239424641}
-  - {fileID: 919606139}
-  - {fileID: 761642538}
-  - {fileID: 1389513280}
   clashDuration: 2.5
   connectedDevices: 
   activePlayers: []
@@ -17464,13 +17456,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 919606138}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -1, y: 1.09, z: 19.40425}
+  m_LocalRotation: {x: -0, y: -1, z: -0, w: -0.00000043213362}
+  m_LocalPosition: {x: -0.99999994, y: 1.09, z: 19.40425}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 426911746}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: -180, z: 0}
 --- !u!43 &924483345
 Mesh:
   m_ObjectHideFlags: 0
@@ -21189,6 +21181,61 @@ Mesh:
       - serializedVersion: 1
         m_IndexStart: 0
         m_IndexCount: 0
+--- !u!1 &1109707852
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1109707854}
+  - component: {fileID: 1109707853}
+  m_Layer: 0
+  m_Name: SpawnManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1109707853
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1109707852}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b7650560c6de2274483680c91e7c4e82, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SpawnManager
+  hunterPrefab: {fileID: 8186502679140566490, guid: eded6d64c0d92cb40a33ad1abddad2a0, type: 3}
+  snitchPrefab: {fileID: 3669509134746835230, guid: fa87be2ac6c5ce8428893c9a90e8098c, type: 3}
+  snitchSpawnPoint: {fileID: 372786351}
+  hunterSpawnPoints:
+  - {fileID: 1239424641}
+  - {fileID: 919606139}
+  - {fileID: 761642538}
+  - {fileID: 1389513280}
+  maxLanes: 5
+  minHeight: 0.5
+  maxHeight: 10
+--- !u!4 &1109707854
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1109707852}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 5.19354, y: -1.09, z: -1.5601}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1145321317
 GameObject:
   m_ObjectHideFlags: 0
@@ -22445,13 +22492,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1239424640}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: 0.70710707, z: -0, w: 0.7071066}
+  m_LocalRotation: {x: -0, y: -0.7071062, z: -0, w: 0.7071075}
   m_LocalPosition: {x: 16.97, y: 1.09, z: 5.7800007}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 426911746}
-  m_LocalEulerAnglesHint: {x: 0, y: 90, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: -90, z: 0}
 --- !u!1 &1248172053
 GameObject:
   m_ObjectHideFlags: 0
@@ -24699,13 +24746,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1389513279}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: -0, y: 0.7071064, z: -0, w: 0.7071072}
   m_LocalPosition: {x: -18.702839, y: 1.09, z: 5.75}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 426911746}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 90, z: 0}
 --- !u!43 &1393693869
 Mesh:
   m_ObjectHideFlags: 0
@@ -42486,3 +42533,4 @@ SceneRoots:
   - {fileID: 1597866156}
   - {fileID: 730994111}
   - {fileID: 1699548169}
+  - {fileID: 1109707854}

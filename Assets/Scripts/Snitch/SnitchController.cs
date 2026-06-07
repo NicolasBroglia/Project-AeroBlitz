@@ -24,10 +24,15 @@ public class SnitchController : MonoBehaviour
     [SerializeField] private InputSystemManager inputManager;
     private Rigidbody rb;
 
-    [Header("Movement Settings")]
+    [Header("Movement Settings (Horizontal)")]
     [SerializeField] private float moveSpeed = 40f;
     [SerializeField] private float maxSpeed = 15f;
-    [SerializeField] private float rotationSpeed = 12f; // <-- ADDED THIS
+    [SerializeField] private float rotationSpeed = 12f;
+
+    [Header("Lane Settings (Vertical)")]
+    [SerializeField] private float laneChangeSpeed = 15f;
+    [SerializeField] private int currentLane = 2;
+    private bool isElevationNeutral = true;
 
     [Header("Dash Settings")]
     [SerializeField] private float dashForce = 25f;
@@ -37,10 +42,6 @@ public class SnitchController : MonoBehaviour
 
     private float dashCooldownTimer = 0f;
     private float activeDashTimer = 0f;
-
-    [Header("Flight Boundaries")]
-    [SerializeField] private float maxHeight = 4f;
-    [SerializeField] private float minHeight = 0.5f;
 
     #endregion
 
@@ -65,7 +66,6 @@ public class SnitchController : MonoBehaviour
         if (dashCooldownTimer > 0) dashCooldownTimer -= Time.deltaTime;
         if (activeDashTimer > 0) activeDashTimer -= Time.deltaTime;
 
-        // Allow actions in ActiveMatch AND Lobby
         bool canPlay = GameManager.Instance.CurrentState == GameState.ActiveMatch || GameManager.Instance.CurrentState == GameState.Lobby;
 
         if (currentState == SnitchState.Fleeing && canPlay)
@@ -73,6 +73,27 @@ public class SnitchController : MonoBehaviour
             if (inputManager.GetDash() && dashCooldownTimer <= 0f)
             {
                 PerformDash();
+            }
+
+            // --- DISCRETE LANE SWITCHING LOGIC ---
+            float elevationInput = inputManager.GetElevation();
+
+            if (isElevationNeutral)
+            {
+                if (elevationInput > 0.5f)
+                {
+                    currentLane = Mathf.Min(currentLane + 1, SpawnManager.Instance.maxLanes - 1);
+                    isElevationNeutral = false;
+                }
+                else if (elevationInput < -0.5f)
+                {
+                    currentLane = Mathf.Max(currentLane - 1, 0);
+                    isElevationNeutral = false;
+                }
+            }
+            else if (Mathf.Abs(elevationInput) < 0.2f)
+            {
+                isElevationNeutral = true;
             }
         }
     }
@@ -86,11 +107,10 @@ public class SnitchController : MonoBehaviour
             if (canPlay)
             {
                 HandleMovement();
-                HandleRotation(); // <-- ADDED THIS
+                HandleRotation();
             }
             else
             {
-                // Drift to a stop during clashes and countdowns
                 rb.linearVelocity = Vector3.Lerp(rb.linearVelocity, Vector3.zero, Time.fixedDeltaTime * 5f);
             }
 
@@ -129,65 +149,71 @@ public class SnitchController : MonoBehaviour
 
     private void HandleMovement()
     {
+        // 1. HORIZONTAL MOVEMENT (X & Z)
         Vector2 planeInput = inputManager.GetMovement();
-        float elevationInput = inputManager.GetElevation();
-        Vector3 moveDirection = new Vector3(planeInput.x, elevationInput, planeInput.y).normalized;
+        Vector3 moveDirection = new Vector3(planeInput.x, 0f, planeInput.y).normalized;
 
         rb.AddForce(moveDirection * moveSpeed, ForceMode.Acceleration);
 
-        // ONLY clamp the speed if we are NOT currently in the middle of a dash
         if (activeDashTimer <= 0f)
         {
-            if (rb.linearVelocity.magnitude > maxSpeed)
+            Vector3 flatVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+            if (flatVelocity.magnitude > maxSpeed)
             {
-                rb.linearVelocity = rb.linearVelocity.normalized * maxSpeed;
+                flatVelocity = flatVelocity.normalized * maxSpeed;
+                rb.linearVelocity = new Vector3(flatVelocity.x, rb.linearVelocity.y, flatVelocity.z);
             }
         }
+
+        // 2. VERTICAL MOVEMENT (Y - Lane Snapping)
+        float targetHeight = SpawnManager.Instance.GetLaneHeight(currentLane);
+
+        float heightDifference = targetHeight - rb.position.y;
+        float newVerticalVelocity = heightDifference * laneChangeSpeed;
+
+        rb.linearVelocity = new Vector3(rb.linearVelocity.x, newVerticalVelocity, rb.linearVelocity.z);
     }
 
-    // <-- ADDED THIS ENTIRE METHOD -->
     private void HandleRotation()
     {
-        if (rb.linearVelocity.sqrMagnitude > 0.1f)
+        // 1. Calculate the Horizontal Facing (Yaw)
+        Vector3 flatVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+        Quaternion targetHorizontal;
+
+        if (flatVelocity.sqrMagnitude > 0.1f)
         {
-            Quaternion targetRotation = Quaternion.LookRotation(rb.linearVelocity.normalized);
-            rb.MoveRotation(Quaternion.Slerp(rb.rotation, targetRotation, Time.fixedDeltaTime * rotationSpeed));
+            targetHorizontal = Quaternion.LookRotation(flatVelocity.normalized);
         }
         else
         {
-            Quaternion flatRotation = Quaternion.Euler(0f, rb.rotation.eulerAngles.y, 0f);
-            rb.MoveRotation(Quaternion.Slerp(rb.rotation, flatRotation, Time.fixedDeltaTime * rotationSpeed));
+            targetHorizontal = Quaternion.Euler(0f, rb.rotation.eulerAngles.y, 0f);
         }
+
+        // 2. Calculate the Vertical Tilt (Pitch)
+        float pitchAngle = -rb.linearVelocity.y * 2.5f;
+        pitchAngle = Mathf.Clamp(pitchAngle, -45f, 45f);
+
+        // 3. Combine horizontal and vertical rotation
+        Quaternion finalRotation = targetHorizontal * Quaternion.Euler(pitchAngle, 0f, 0f);
+
+        rb.MoveRotation(Quaternion.Slerp(rb.rotation, finalRotation, Time.fixedDeltaTime * rotationSpeed));
     }
 
     private void ApplyHeightClamp()
     {
         Vector3 clampedPosition = rb.position;
-        clampedPosition.y = Mathf.Clamp(clampedPosition.y, minHeight, maxHeight);
-
+        clampedPosition.y = Mathf.Clamp(clampedPosition.y, SpawnManager.Instance.minHeight, SpawnManager.Instance.maxHeight);
         if (rb.position.y != clampedPosition.y)
         {
             rb.position = clampedPosition;
-            // Kill vertical momentum so they don't bounce against the ceiling/floor
-            rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
         }
     }
-    public void SetSpeed(float newSpeed)
-    {
-        moveSpeed = newSpeed;
-    }
-    public void SetMaxSpeed(float newMaxSpeed)
-    {
-        maxSpeed = newMaxSpeed;
-    }
-    public float GetSpeed()
-    {
-        return moveSpeed;
-    }
-    public float GetMaxSpeed()
-    {
-        return maxSpeed;
-    }
+
+    public void SetSpeed(float newSpeed) { moveSpeed = newSpeed; }
+    public void SetMaxSpeed(float newMaxSpeed) { maxSpeed = newMaxSpeed; }
+    public float GetSpeed() { return moveSpeed; }
+    public float GetMaxSpeed() { return maxSpeed; }
+
     #endregion
 
     #region Dash Logic
@@ -198,17 +224,15 @@ public class SnitchController : MonoBehaviour
         activeDashTimer = dashDuration;
 
         Vector2 planeInput = inputManager.GetMovement();
-        float elevationInput = inputManager.GetElevation();
-        Vector3 dashDir = new Vector3(planeInput.x, elevationInput, planeInput.y).normalized;
+        Vector3 dashDir = new Vector3(planeInput.x, 0f, planeInput.y).normalized;
 
-        // If no input, dash in the direction of current momentum
         if (dashDir == Vector3.zero)
         {
-            dashDir = rb.linearVelocity.sqrMagnitude > 0.1f ? rb.linearVelocity.normalized : transform.forward;
+            Vector3 flatVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+            dashDir = flatVelocity.sqrMagnitude > 0.1f ? flatVelocity.normalized : transform.forward;
         }
 
-        // Wipe current velocity so the dash is explosive
-        rb.linearVelocity = Vector3.zero;
+        rb.linearVelocity = new Vector3(0f, rb.linearVelocity.y, 0f);
         rb.AddForce(dashDir * dashForce, ForceMode.Impulse);
     }
 
@@ -226,12 +250,32 @@ public class SnitchController : MonoBehaviour
         style.fontStyle = FontStyle.Bold;
         style.alignment = TextAnchor.MiddleCenter;
 
-        string label = $"Device: {inputManager.deviceID}\nState: {currentState}";
-
-        // Draws the text 2.5 units above the player's head in the Scene View
+        string label = $"Device: {inputManager.deviceID}\nLANE: {currentLane + 1}";
         UnityEditor.Handles.Label(transform.position + Vector3.up * 2.5f, label, style);
     }
 #endif
+
+    #endregion
+
+    #region Spawning & Initialization
+
+    public void InitializeAtSpawn(Vector3 exactPosition, Quaternion exactRotation)
+    {
+        // 1. Wipe forces
+        rb.linearVelocity = Vector3.zero;
+        rb.angularVelocity = Vector3.zero;
+
+        // 2. Figure out which lane index this exact Y coordinate belongs to
+        float heightPercentage = Mathf.InverseLerp(SpawnManager.Instance.minHeight, SpawnManager.Instance.maxHeight, exactPosition.y);
+        currentLane = Mathf.RoundToInt(heightPercentage * (SpawnManager.Instance.maxLanes - 1));
+        currentLane = Mathf.Clamp(currentLane, 0, SpawnManager.Instance.maxLanes - 1);
+
+        // 3. Force the physical location
+        rb.position = exactPosition;
+        rb.rotation = exactRotation;
+        transform.position = exactPosition;
+        transform.rotation = exactRotation;
+    }
 
     #endregion
 }

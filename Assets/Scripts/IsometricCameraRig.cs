@@ -214,6 +214,41 @@ public class IsometricCameraRig : MonoBehaviour
 
     #endregion
 
+    #region Public API
+
+    public void SnapToTargets()
+    {
+        if (targets == null || targets.Count == 0) return;
+
+        Vector3 centroid = GetCentroid();
+
+        Quaternion inverseCamRotation = Quaternion.Inverse(Quaternion.Euler(0f, cam.transform.eulerAngles.y, 0f));
+        Bounds localBounds = new Bounds(Vector3.zero, Vector3.zero);
+
+        foreach (Transform t in targets)
+        {
+            localBounds.Encapsulate(inverseCamRotation * (t.position - centroid));
+        }
+
+        // 1. Instantly snap camera position
+        Vector3 perfectOffset = -cam.transform.forward * cameraDistance;
+        transform.position = centroid + perfectOffset;
+
+        // 2. Instantly snap orthographic zoom
+        float pitchSin = Mathf.Abs(cam.transform.forward.y);
+        float sizeBasedOnWidth = (localBounds.size.x / cam.aspect) * 0.5f;
+        float sizeBasedOnHeight = (localBounds.size.z * pitchSin) * 0.5f;
+
+        float requiredSize = Mathf.Max(sizeBasedOnWidth, sizeBasedOnHeight) + zoomPadding;
+        cam.orthographicSize = Mathf.Clamp(requiredSize, minZoom, maxZoom);
+
+        // 3. Wipe velocities so it doesn't drift
+        moveVelocity = Vector3.zero;
+        zoomVelocity = 0f;
+    }
+
+    #endregion
+
     #region Editor Debug
 
 #if UNITY_EDITOR

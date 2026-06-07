@@ -115,6 +115,9 @@ MonoBehaviour:
   moveSpeed: 100
   maxSpeed: 25
   rotationSpeed: 12
+  maxLanes: 3
+  laneChangeSpeed: 15
+  currentLane: 1
   dashForce: 55
   dashCooldown: 3
   dashDuration: 0.25
@@ -151,6 +154,8 @@ MonoBehaviour:
     m_Bits: 0
   showTetherLine: 0
   baseShadowScale: 2.5
+  centerOffset: {x: 0, y: 0, z: 0}
+  shadowProportions: {x: 1, y: 1, z: 1}
 --- !u!120 &7397904432980778400
 LineRenderer:
   serializedVersion: 3

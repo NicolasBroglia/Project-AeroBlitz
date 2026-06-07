@@ -176,6 +176,9 @@ MonoBehaviour:
   moveSpeed: 60
   maxSpeed: 25
   rotationSpeed: 12
+  maxLanes: 3
+  laneChangeSpeed: 15
+  currentLane: 1
   dashForce: 45
   dashCooldown: 1.5
   dashDuration: 0.2

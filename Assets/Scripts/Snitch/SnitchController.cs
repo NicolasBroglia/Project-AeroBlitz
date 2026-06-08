@@ -23,6 +23,7 @@ public class SnitchController : MonoBehaviour
     [Header("References")]
     [SerializeField] private InputSystemManager inputManager;
     private Rigidbody rb;
+    private Transform mainCam; // Cached camera transform
 
     [Header("Movement Settings (Horizontal)")]
     [SerializeField] private float moveSpeed = 40f;
@@ -40,6 +41,14 @@ public class SnitchController : MonoBehaviour
     [Tooltip("How long the dash ignores the maxSpeed clamp (in seconds)")]
     [SerializeField] private float dashDuration = 0.2f;
 
+    [Header("Depth Color Settings")]
+    [Tooltip("How dark the color gets at the bottom lane")]
+    [SerializeField] private float minBrightness = 0.4f;
+    [Tooltip("How bright the color gets at the top lane")]
+    [SerializeField] private float maxBrightness = 1.0f;
+    private Color baseColor = Color.white;
+    private Renderer[] characterRenderers;
+
     private float dashCooldownTimer = 0f;
     private float activeDashTimer = 0f;
 
@@ -55,6 +64,9 @@ public class SnitchController : MonoBehaviour
         rb.useGravity = false;
 
         inputManager = GetComponent<InputSystemManager>();
+
+        // Cache camera for performance
+        mainCam = Camera.main.transform;
 
         ChangeState(SnitchState.Idle);
     }
@@ -115,6 +127,7 @@ public class SnitchController : MonoBehaviour
             }
 
             ApplyHeightClamp();
+            UpdateDepthColor();
         }
     }
 
@@ -149,9 +162,21 @@ public class SnitchController : MonoBehaviour
 
     private void HandleMovement()
     {
-        // 1. HORIZONTAL MOVEMENT (X & Z)
+        // 1. HORIZONTAL MOVEMENT (X & Z) - Camera Relative
         Vector2 planeInput = inputManager.GetMovement();
-        Vector3 moveDirection = new Vector3(planeInput.x, 0f, planeInput.y).normalized;
+
+        // Grab the camera's directions
+        Vector3 camForward = mainCam.forward;
+        Vector3 camRight = mainCam.right;
+
+        // Flatten them so movement strictly stays on the horizontal plane
+        camForward.y = 0f;
+        camRight.y = 0f;
+        camForward.Normalize();
+        camRight.Normalize();
+
+        // Multiply the input by the camera's directions
+        Vector3 moveDirection = (camForward * planeInput.y + camRight * planeInput.x).normalized;
 
         rb.AddForce(moveDirection * moveSpeed, ForceMode.Acceleration);
 
@@ -224,7 +249,16 @@ public class SnitchController : MonoBehaviour
         activeDashTimer = dashDuration;
 
         Vector2 planeInput = inputManager.GetMovement();
-        Vector3 dashDir = new Vector3(planeInput.x, 0f, planeInput.y).normalized;
+
+        // Camera-Relative Dash
+        Vector3 camForward = mainCam.forward;
+        Vector3 camRight = mainCam.right;
+        camForward.y = 0f;
+        camRight.y = 0f;
+        camForward.Normalize();
+        camRight.Normalize();
+
+        Vector3 dashDir = (camForward * planeInput.y + camRight * planeInput.x).normalized;
 
         if (dashDir == Vector3.zero)
         {
@@ -278,4 +312,33 @@ public class SnitchController : MonoBehaviour
     }
 
     #endregion
+
+    public void SetBaseColor(Color color)
+    {
+        baseColor = color;
+        characterRenderers = GetComponentsInChildren<Renderer>();
+        UpdateDepthColor(); // Apply immediately so they don't flash white on spawn
+    }
+
+    private void UpdateDepthColor()
+    {
+        if (characterRenderers == null || characterRenderers.Length == 0) return;
+
+        // 1. Calculate exact height percentage (0.0 is floor, 1.0 is ceiling)
+        float heightPct = Mathf.InverseLerp(SpawnManager.Instance.minHeight, SpawnManager.Instance.maxHeight, rb.position.y);
+
+        // 2. Convert the base color to HSV so we can safely edit brightness without ruining the hue
+        Color.RGBToHSV(baseColor, out float h, out float s, out float v);
+
+        // 3. Calculate the new brightness multiplier
+        float targetBrightness = Mathf.Lerp(minBrightness, maxBrightness, heightPct);
+        v = Mathf.Clamp01(v * targetBrightness);
+
+        // 4. Convert back to RGB and apply
+        Color depthColor = Color.HSVToRGB(h, s, v);
+        foreach (Renderer rend in characterRenderers)
+        {
+            rend.material.color = depthColor;
+        }
+    }
 }

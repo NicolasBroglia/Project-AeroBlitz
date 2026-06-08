@@ -318,8 +318,9 @@ public class GameManager : MonoBehaviour
     {
         if (deviceColors.TryGetValue(deviceID, out Color assignedColor))
         {
-            Renderer[] renderers = player.GetComponentsInChildren<Renderer>();
-            foreach (Renderer rend in renderers) rend.material.color = assignedColor;
+            // Pass the color to the controllers instead of brute-forcing the material
+            if (player.TryGetComponent<HunterController>(out var hunter)) hunter.SetBaseColor(assignedColor);
+            if (player.TryGetComponent<SnitchController>(out var snitch)) snitch.SetBaseColor(assignedColor);
         }
     }
 

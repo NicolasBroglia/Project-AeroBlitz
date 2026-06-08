@@ -115,14 +115,11 @@ MonoBehaviour:
   moveSpeed: 100
   maxSpeed: 25
   rotationSpeed: 12
-  maxLanes: 3
   laneChangeSpeed: 15
   currentLane: 1
   dashForce: 55
   dashCooldown: 3
   dashDuration: 0.25
-  minHeight: 0.5
-  maxHeight: 15
 --- !u!114 &253083277499436173
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -151,8 +148,8 @@ MonoBehaviour:
   shadowPrefab: {fileID: 7736886328241760671, guid: 627391bf45bfbca4294f497f329ddbbb, type: 3}
   floorLayerMask:
     serializedVersion: 2
-    m_Bits: 0
-  showTetherLine: 0
+    m_Bits: 8
+  showTetherLine: 1
   baseShadowScale: 2.5
   centerOffset: {x: 0, y: 0, z: 0}
   shadowProportions: {x: 1, y: 1, z: 1}
@@ -253,7 +250,7 @@ LineRenderer:
       atime6: 0
       atime7: 0
       m_Mode: 0
-      m_ColorSpace: -1
+      m_ColorSpace: 0
       m_NumColorKeys: 2
       m_NumAlphaKeys: 2
     numCornerVertices: 0

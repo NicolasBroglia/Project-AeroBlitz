@@ -14,11 +14,11 @@ OcclusionCullingSettings:
 RenderSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 10
-  m_Fog: 0
-  m_FogColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-  m_FogMode: 3
+  m_Fog: 1
+  m_FogColor: {r: 0.33333334, g: 0.38431373, b: 0.53333336, a: 1}
+  m_FogMode: 1
   m_FogDensity: 0.01
-  m_LinearFogStart: 0
+  m_LinearFogStart: 90
   m_LinearFogEnd: 300
   m_AmbientSkyColor: {r: 0.212, g: 0.227, b: 0.259, a: 1}
   m_AmbientEquatorColor: {r: 0.114, g: 0.125, b: 0.133, a: 1}
@@ -5043,7 +5043,7 @@ Camera:
   near clip plane: 0.01
   far clip plane: 1000
   field of view: 60
-  orthographic: 0
+  orthographic: 1
   orthographic size: 5
   m_Depth: -1
   m_CullingMask:
@@ -5157,7 +5157,7 @@ GameObject:
   - component: {fileID: 242465796}
   - component: {fileID: 242465795}
   - component: {fileID: 242465794}
-  m_Layer: 0
+  m_Layer: 3
   m_Name: Floor
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -13212,7 +13212,7 @@ MonoBehaviour:
   - {r: 1, g: 0.5, b: 0, a: 1}
   debugSinglePlayer: 0
   offlineMode: 1
-  offlinePlayerCount: 2
+  offlinePlayerCount: 5
   showDebugGUI: 0
 --- !u!4 &581557785
 Transform:
@@ -21218,9 +21218,9 @@ MonoBehaviour:
   - {fileID: 919606139}
   - {fileID: 761642538}
   - {fileID: 1389513280}
-  maxLanes: 5
+  maxLanes: 3
   minHeight: 0.5
-  maxHeight: 10
+  maxHeight: 6
 --- !u!4 &1109707854
 Transform:
   m_ObjectHideFlags: 0

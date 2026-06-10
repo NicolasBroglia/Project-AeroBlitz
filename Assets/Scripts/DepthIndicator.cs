@@ -60,7 +60,7 @@ public class DepthIndicator : MonoBehaviour
 
         float currentAltitude = trueCenter.y - floorPos.y;
 
-        if (showTetherLine) UpdateTether(trueCenter, floorPos);
+        //if (showTetherLine) UpdateTether(trueCenter, floorPos);
         if (activeShadow != null) UpdateShadow(floorPos, currentAltitude);
     }
 

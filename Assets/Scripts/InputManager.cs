@@ -125,7 +125,7 @@ public class InputManager : MonoBehaviour
             {
                 float x = (kb.dKey.isPressed ? 1 : 0) - (kb.aKey.isPressed ? 1 : 0);
                 float z = (kb.wKey.isPressed ? 1 : 0) - (kb.sKey.isPressed ? 1 : 0);
-                float y = (kb.eKey.isPressed ? 1 : 0) - (kb.qKey.isPressed ? 1 : 0);
+                float y = (kb.gKey.isPressed ? 1 : 0) - (kb.hKey.isPressed ? 1 : 0);
 
                 // Only override if the keyboard is actually being pressed
                 if (x != 0) mergedData.MoveX = x;
@@ -136,7 +136,7 @@ public class InputManager : MonoBehaviour
             {
                 float x = (kb.rightArrowKey.isPressed ? 1 : 0) - (kb.leftArrowKey.isPressed ? 1 : 0);
                 float z = (kb.upArrowKey.isPressed ? 1 : 0) - (kb.downArrowKey.isPressed ? 1 : 0);
-                float y = (kb.rightShiftKey.isPressed ? 1 : 0) - (kb.rightCtrlKey.isPressed ? 1 : 0);
+                float y = (kb.numpad5Key.isPressed ? 1 : 0) - (kb.numpad6Key.isPressed ? 1 : 0);
 
                 if (x != 0) mergedData.MoveX = x;
                 if (z != 0) mergedData.MoveZ = z;
@@ -159,7 +159,7 @@ public class InputManager : MonoBehaviour
         if (offlineKeyboard && Keyboard.current != null)
         {
             if (deviceID == 0 && Keyboard.current.spaceKey.wasPressedThisFrame) triggered = true;
-            if (deviceID == 1 && Keyboard.current.enterKey.wasPressedThisFrame) triggered = true;
+            if (deviceID == 1 && Keyboard.current.numpad0Key.wasPressedThisFrame) triggered = true;
         }
 
         // 2. Check AirConsole (Consume it instantly so it doesn't double-fire)

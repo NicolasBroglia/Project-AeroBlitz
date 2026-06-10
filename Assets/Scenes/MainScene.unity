@@ -13212,7 +13212,7 @@ MonoBehaviour:
   - {r: 1, g: 0.5, b: 0, a: 1}
   debugSinglePlayer: 0
   offlineMode: 1
-  offlinePlayerCount: 5
+  offlinePlayerCount: 2
   showDebugGUI: 0
 --- !u!4 &581557785
 Transform:
@@ -37807,9 +37807,9 @@ MonoBehaviour:
 
     WASD
 
-    E
+    G
 
-    Q
+    H
 
     Space'
   m_isRightToLeft: 0
@@ -40413,11 +40413,11 @@ MonoBehaviour:
 
     Arrows
 
-    Right shift
+    Numpad 5
 
-    Right ctrl
+    Numpad 6
 
-    Enter'
+    Numpad 0'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2100000, guid: 79459efec17a4d00a321bdcc27bbc385, type: 2}

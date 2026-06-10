@@ -180,7 +180,7 @@ public class InputManager : MonoBehaviour
         if (offlineKeyboard && Keyboard.current != null)
         {
             if (deviceID == 0 && Keyboard.current.spaceKey.wasPressedThisFrame) triggered = true;
-            if (deviceID == 1 && Keyboard.current.enterKey.wasPressedThisFrame) triggered = true;
+            if (deviceID == 1 && Keyboard.current.numpad0Key.wasPressedThisFrame) triggered = true;
         }
 
         // 2. Check AirConsole (Failsafe: Dash or Mash counts)

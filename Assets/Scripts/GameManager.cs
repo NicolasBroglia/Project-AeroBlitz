@@ -28,7 +28,7 @@ public class GameManager : MonoBehaviour
     [Header("Match Settings")]
     [SerializeField] private float matchDuration = 120f;
     [SerializeField] private float currentMatchTimer;
-    [SerializeField] private Dictionary<int, float> snitchTimeScores = new Dictionary<int, float>();
+    [SerializeField] private Dictionary<int, int> playerScores = new Dictionary<int, int>();
 
     [Header("Clash Settings")]
     [SerializeField] private float clashDuration = 2.5f;
@@ -104,13 +104,10 @@ public class GameManager : MonoBehaviour
             currentMatchTimer -= Time.deltaTime;
             UIManager.Instance.UpdateTimerDisplay(currentMatchTimer);
 
+            // Actualizamos la UI, pero ya no sumamos tiempo internamente
             if (connectedDevices.Count > 0)
             {
-                int currentSnitchID = connectedDevices[0];
-                if (!snitchTimeScores.ContainsKey(currentSnitchID)) snitchTimeScores[currentSnitchID] = 0f;
-                snitchTimeScores[currentSnitchID] += Time.deltaTime;
-
-                UIManager.Instance.UpdateScoresDisplay(currentSnitchID, connectedDevices);
+                UIManager.Instance.UpdateScoresDisplay(connectedDevices[0], connectedDevices);
             }
 
             if (currentMatchTimer <= 0)
@@ -221,7 +218,7 @@ public class GameManager : MonoBehaviour
     private void StartMatchInit()
     {
         currentMatchTimer = matchDuration;
-        snitchTimeScores.Clear();
+        playerScores.Clear();
         StartCoroutine(StartCountdownRoutine());
     }
 
@@ -248,26 +245,55 @@ public class GameManager : MonoBehaviour
         UIManager.Instance.HideCountdownText();
     }
 
-    private IEnumerator EndMatchRoutine()
+private IEnumerator EndMatchRoutine()
     {
         ChangeState(GameState.MatchOver);
 
         foreach (var player in activePlayers) { if (player != null) Destroy(player); }
         activePlayers.Clear();
 
-        int winnerID = -1;
-        float highestTime = -1f;
+        // 1. Buscamos el puntaje más alto y a TODOS los jugadores que lo tengan
+        int highestScore = 0; 
+        List<int> winners = new List<int>();
 
-        foreach (var score in snitchTimeScores)
+        foreach (var score in playerScores)
         {
-            if (score.Value > highestTime)
+            if (score.Value > highestScore)
             {
-                highestTime = score.Value;
-                winnerID = score.Key;
+                // Encontramos un nuevo récord. Limpiamos la lista y agregamos al nuevo líder.
+                highestScore = score.Value;
+                winners.Clear();
+                winners.Add(score.Key);
+            }
+            else if (score.Value == highestScore && score.Value > 0)
+            {
+                // Alguien empató el récord actual. Lo sumamos a la lista.
+                winners.Add(score.Key);
             }
         }
 
-        UIManager.Instance.ShowNotification($"<color=green>WINNER: Device {winnerID} with {highestTime:F1} seconds!</color>");
+        // 2. Determinamos qué texto mostrar en base a la cantidad de ganadores
+        string endMessage = "";
+
+        if (winners.Count == 0)
+        {
+            // Escenario A: Diccionario vacío (Nadie hizo puntos)
+            endMessage = "<color=yellow>DRAW: The Snitch survived!</color>";
+        }
+        else if (winners.Count == 1)
+        {
+            // Escenario B: Un solo ganador claro
+            endMessage = $"<color=green>WINNER: Device {winners[0]} with {highestScore} points!</color>";
+        }
+        else
+        {
+            // Escenario C: Empate. Unimos los IDs de los ganadores con un "&" (Ej: "1 & 2")
+            string tiedDevices = string.Join(" & ", winners);
+            endMessage = $"<color=yellow>TIE: Devices {tiedDevices} with {highestScore} points!</color>";
+        }
+
+        // 3. Mostramos el mensaje final
+        UIManager.Instance.ShowNotification(endMessage);
         UIManager.Instance.HideNotification(5);
 
         yield return new WaitForSeconds(5f);
@@ -278,7 +304,6 @@ public class GameManager : MonoBehaviour
             StartMatchInit();
         }
     }
-
     #endregion
 
     #region Player Management
@@ -383,11 +408,13 @@ public class GameManager : MonoBehaviour
     {
         ChangeState(GameState.PostTag);
 
+        // --- SUMAMOS EL PUNTO AL CAZADOR ---
+        if (!playerScores.ContainsKey(winningHunterID)) playerScores[winningHunterID] = 0;
+        playerScores[winningHunterID]++;
+
         UIManager.Instance.ShowNotification($"¡PLAYER {winningHunterID} CAUGHT THE SNITCH!");
-        UIManager.Instance.UpdateScoresDisplay(GetCurrentSnitchID(), connectedDevices);
 
         StartCoroutine(ResetRoundRoutine(winningHunterID));
-
         UIManager.Instance.UpdateScoresDisplay(GetCurrentSnitchID(), connectedDevices);
     }
 
@@ -416,7 +443,7 @@ public class GameManager : MonoBehaviour
 
     public float GetTimeRemaining() { return currentMatchTimer; }
     public int GetConnectedPlayerCount() { return connectedDevices.Count; }
-    public float GetPlayerScore(int deviceID) { return snitchTimeScores.ContainsKey(deviceID) ? snitchTimeScores[deviceID] : 0f; }
+    public int GetPlayerScore(int deviceID) { return playerScores.ContainsKey(deviceID) ? playerScores[deviceID] : 0; }
     public int GetCurrentSnitchID() { return (CurrentState == GameState.ActiveMatch && connectedDevices.Count > 0) ? connectedDevices[0] : -1; }
     public List<int> GetConnectedDevices() { return connectedDevices; }
 
@@ -456,13 +483,15 @@ public class GameManager : MonoBehaviour
         {
             int snitchID = connectedDevices[0];
             Color sColor = deviceColors.TryGetValue(snitchID, out var sc) ? sc : Color.white;
-            GUILayout.Label($"<color=#{ColorUtility.ToHtmlStringRGB(sColor)}>▶ DEVICE {snitchID} [SNITCH]</color> - Score: {GetPlayerScore(snitchID):F1}s");
+            // Quitamos el :F1s
+            GUILayout.Label($"<color=#{ColorUtility.ToHtmlStringRGB(sColor)}>▶ DEVICE {snitchID} [SNITCH]</color> - Score: {GetPlayerScore(snitchID)}");
 
             for (int i = 1; i < connectedDevices.Count; i++)
             {
                 int hunterID = connectedDevices[i];
                 Color hColor = deviceColors.TryGetValue(hunterID, out var hc) ? hc : Color.white;
-                GUILayout.Label($"<color=#{ColorUtility.ToHtmlStringRGB(hColor)}>▷ DEVICE {hunterID} [HUNTER]</color> - Score: {GetPlayerScore(hunterID):F1}s");
+                // Quitamos el :F1s
+                GUILayout.Label($"<color=#{ColorUtility.ToHtmlStringRGB(hColor)}>▷ DEVICE {hunterID} [HUNTER]</color> - Score: {GetPlayerScore(hunterID)}");
             }
         }
 

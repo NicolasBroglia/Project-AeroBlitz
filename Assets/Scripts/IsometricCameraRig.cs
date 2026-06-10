@@ -89,11 +89,22 @@ public class IsometricCameraRig : MonoBehaviour
     private Vector3 GetCentroid()
     {
         Vector3 centroid = Vector3.zero;
+        int validTargets = 0;
+
         foreach (Transform t in targets)
         {
-            centroid += t.position;
+            // Chequeo de seguridad: ignoramos los objetos que acaban de ser destruidos
+            if (t != null)
+            {
+                centroid += t.position;
+                validTargets++;
+            }
         }
-        return centroid / targets.Count;
+
+        // Si por casualidad se destruyeron todos justo en este frame, evitamos dividir por cero
+        if (validTargets == 0) return Vector3.zero;
+
+        return centroid / validTargets;
     }
 
     private Vector2 CalculateMaxLeash()

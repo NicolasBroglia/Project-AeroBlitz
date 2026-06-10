@@ -6,7 +6,7 @@ public class PowerUpManager : MonoBehaviour
 {
     [Header("Spawn Settings")]
     [SerializeField] private float spawnInterval = 5f;
-    [SerializeField] private int maxActivePowerUps = 3;
+    [SerializeField] private int maxActivePowerUps = 7;
 
     [Header("References")]
     [SerializeField] private GameObject powerUpPrefab;

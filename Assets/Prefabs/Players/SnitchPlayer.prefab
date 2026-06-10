@@ -181,7 +181,7 @@ MonoBehaviour:
   dashForce: 45
   dashCooldown: 1.5
   dashDuration: 0.2
-  minBrightness: 0.4
+  minBrightness: 0.6
   maxBrightness: 1
 --- !u!120 &6950008976574858678
 LineRenderer:
@@ -310,10 +310,10 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 8
   showTetherLine: 1
-  tetherColor: {r: 0, g: 1, b: 1, a: 0.15}
   baseShadowScale: 3
   centerOffset: {x: 0, y: 0, z: 0}
   shadowProportions: {x: 1, y: 1, z: 1}
+  tetherAlpha: 0.15
 --- !u!114 &7796911800372876484
 MonoBehaviour:
   m_ObjectHideFlags: 0

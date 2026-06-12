@@ -49,6 +49,22 @@ public class PowerUpCollectable : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
+        // 1. Identificamos el rol del jugador que nos acaba de chocar
+        bool isSnitch = other.GetComponent<SnitchController>() != null;
+        bool isHunter = other.GetComponent<HunterController>() != null;
+
+        // 2. Aplicamos las restricciones exclusivas
+        if (powerUpData.type == PowerUpType.DecoyClone && !isSnitch)
+        {
+            return; // Si es el Decoy y NO lo tocó la Snitch, cortamos la ejecución acá (lo atraviesa)
+        }
+
+        if (powerUpData.type == PowerUpType.Juggernaut && !isHunter)
+        {
+            return; // Si es el Juggernaut y NO lo tocó un Cazador, cortamos la ejecución acá
+        }
+
+        // 3. Si pasó los filtros (o si es un power-up genérico para cualquiera), ejecutamos la recolección
         PowerUpReceiver receiver = other.GetComponent<PowerUpReceiver>();
 
         if (receiver != null)

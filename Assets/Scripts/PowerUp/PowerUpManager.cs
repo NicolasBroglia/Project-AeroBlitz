@@ -2,16 +2,25 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+[System.Serializable]
+public class PowerUpConfig
+{
+    [Tooltip("¿Puede aparecer este power-up en la partida?")]
+    public bool isEnabled = true;
+    public PowerUpSO powerUpData;
+}
+
 public class PowerUpManager : MonoBehaviour
 {
     [Header("Spawn Settings")]
     [SerializeField] private float spawnInterval = 5f;
-    [SerializeField] private int maxActivePowerUps = 7;
+    [SerializeField] private int maxActivePowerUps = 5;
 
     [Header("References")]
     [SerializeField] private GameObject powerUpPrefab;
     [SerializeField] private Transform[] spawnPoints;
-    [SerializeField] private PowerUpSO[] availablePowerUps;
+
+    [SerializeField] private PowerUpConfig[] availablePowerUps;
 
     //Object Pool
     private List<GameObject> powerUpPool = new List<GameObject>();
@@ -104,7 +113,27 @@ public class PowerUpManager : MonoBehaviour
 
         if (randomSpawnPoint != null)
         {
-            PowerUpSO randomData = availablePowerUps[Random.Range(0, availablePowerUps.Length)];
+            PowerUpSO selectedData = null;
+            List<PowerUpSO> enabledPowerUps = new List<PowerUpSO>();
+
+            // Filtramos los que están activos en el Inspector
+            foreach (PowerUpConfig config in availablePowerUps)
+            {
+                if (config.isEnabled && config.powerUpData != null)
+                {
+                    enabledPowerUps.Add(config.powerUpData);
+                }
+            }
+
+            // Elegimos uno al azar de la lista limpia
+            if (enabledPowerUps.Count > 0)
+            {
+                selectedData = enabledPowerUps[Random.Range(0, enabledPowerUps.Count)];
+            }
+
+            // Si no hay datos disponibles, cortamos acá
+            if (selectedData == null) return;
+            // ==========================================
 
             // 3. Teletransportamos el objeto reciclado a la nueva posición
             powerUpToSpawn.transform.position = randomSpawnPoint.position;
@@ -114,10 +143,10 @@ public class PowerUpManager : MonoBehaviour
             PowerUpCollectable collectable = powerUpToSpawn.GetComponent<PowerUpCollectable>();
             if (collectable != null)
             {
-                collectable.powerUpData = randomData;
+                collectable.powerUpData = selectedData;
             }
 
-            ApplyVisualFeedback(powerUpToSpawn, randomData.type);
+            ApplyVisualFeedback(powerUpToSpawn, selectedData.type);
 
             // 5. Lo "Encendemos" (Esto dispara automáticamente el OnEnable del Collectable)
             powerUpToSpawn.SetActive(true);
@@ -170,6 +199,12 @@ public class PowerUpManager : MonoBehaviour
                     break;
                 case PowerUpType.FreezeHunters:
                     rend.material.color = Color.blue;
+                    break;
+                case PowerUpType.DecoyClone:
+                    rend.material.color = Color.purple;
+                    break;
+                case PowerUpType.Juggernaut:
+                    rend.material.color = Color.red;
                     break;
             }
         }

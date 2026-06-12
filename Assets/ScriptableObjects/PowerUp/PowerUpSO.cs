@@ -4,7 +4,10 @@ public enum PowerUpType
 {
     SpeedBoost,
     FreezeHunters,
-    ZeroDrag
+    ZeroDrag,
+    Juggernaut,
+    DecoyClone,
+    InvertControls
 }
 
 [CreateAssetMenu(fileName = "NewPowerUp", menuName = "PowerUps/PowerUp Data")]

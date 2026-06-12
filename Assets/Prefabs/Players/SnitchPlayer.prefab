@@ -173,6 +173,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::SnitchController
   currentState: 0
   inputManager: {fileID: 0}
+  mRenderer: {fileID: 2046017752005264706}
   moveSpeed: 60
   maxSpeed: 25
   rotationSpeed: 12
@@ -326,6 +327,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 68135b3e59c94324896e5a423dab6645, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PowerUpReceiver
+  decoyPrefab: {fileID: 3669509134746835230, guid: 7daf1d977b9da9845ba7bfd9b58acbbf, type: 3}
 --- !u!1001 &2550350043289457549
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -407,6 +409,11 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: fccbc153f01597a4b9ba076718a881fe, type: 3}
+--- !u!23 &2046017752005264706 stripped
+MeshRenderer:
+  m_CorrespondingSourceObject: {fileID: -4683669308469848369, guid: fccbc153f01597a4b9ba076718a881fe, type: 3}
+  m_PrefabInstance: {fileID: 2550350043289457549}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &2661082740905407590 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: fccbc153f01597a4b9ba076718a881fe, type: 3}

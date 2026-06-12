@@ -22,6 +22,7 @@ public class SnitchController : MonoBehaviour
 
     [Header("References")]
     [SerializeField] private InputSystemManager inputManager;
+    public MeshRenderer mRenderer;
     private Rigidbody rb;
     private Transform mainCam; // Cached camera transform
 

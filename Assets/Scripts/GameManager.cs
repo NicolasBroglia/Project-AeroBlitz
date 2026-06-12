@@ -3,7 +3,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using NDream.AirConsole;
-using Random = UnityEngine.Random;
 
 public enum GameState
 {
@@ -19,11 +18,17 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager Instance;
 
+    public enum PlayMode { None, PCLocal, AirConsole }
+    public PlayMode CurrentPlayMode { get; private set; } = PlayMode.None;
+
     #region Variables & Properties
 
     public GameState CurrentState { get; private set; }
     private const int MAX_PLAYERS = 5;
     public static event Action<GameState> OnGameStateChanged;
+
+    [Header("Mode & Networking")]
+    [SerializeField] private GameObject airConsoleManagerObject; // Drag AirConsole prefab here
 
     [Header("Match Settings")]
     [SerializeField] private float matchDuration = 120f;
@@ -51,11 +56,15 @@ public class GameManager : MonoBehaviour
     private Dictionary<int, Color> deviceColors = new Dictionary<int, Color>();
     private int nextColorIndex = 0;
 
+    // --- NEW ROSTER TRACKING VARIABLES ---
+    public int localPlayerCount = 0;
+    private int currentBotCount = 0;
+
     [Header("Testing & Debug")]
-    [SerializeField] private bool debugSinglePlayer = false;
-    [SerializeField] private bool offlineMode = false;
-    [SerializeField][Range(2, 5)] private int offlinePlayerCount = 3;
     [SerializeField] private bool showDebugGUI = true;
+
+    private float uiUpdateTimer = 0f;
+    private const float UI_UPDATE_RATE = 0.1f; // Update 10 times a second
 
     #endregion
 
@@ -83,17 +92,6 @@ public class GameManager : MonoBehaviour
 
     void Start()
     {
-        if (offlineMode)
-        {
-            for (int i = 0; i < offlinePlayerCount; i++)
-            {
-                connectedDevices.Add(i);
-                deviceColors[i] = availableColors[nextColorIndex % availableColors.Length];
-                nextColorIndex++;
-            }
-        }
-
-        UIManager.Instance.ShowLobby(offlineMode);
         ChangeState(GameState.Lobby);
     }
 
@@ -107,10 +105,15 @@ public class GameManager : MonoBehaviour
             if (connectedDevices.Count > 0)
             {
                 int currentSnitchID = connectedDevices[0];
-                if (!snitchTimeScores.ContainsKey(currentSnitchID)) snitchTimeScores[currentSnitchID] = 0f;
+
                 snitchTimeScores[currentSnitchID] += Time.deltaTime;
 
-                UIManager.Instance.UpdateScoresDisplay(currentSnitchID, connectedDevices);
+                uiUpdateTimer += Time.deltaTime;
+                if (uiUpdateTimer >= UI_UPDATE_RATE)
+                {
+                    UIManager.Instance.UpdateScoresDisplay(currentSnitchID, connectedDevices);
+                    uiUpdateTimer = 0f;
+                }
             }
 
             if (currentMatchTimer <= 0)
@@ -137,6 +140,87 @@ public class GameManager : MonoBehaviour
 
     #endregion
 
+    #region Mode & Roster Management
+
+    public void SetPlayMode(PlayMode mode)
+    {
+        CurrentPlayMode = mode;
+
+        if (mode == PlayMode.AirConsole)
+        {
+            if (airConsoleManagerObject != null) airConsoleManagerObject.SetActive(true);
+        }
+        else if (mode == PlayMode.PCLocal)
+        {
+            if (airConsoleManagerObject != null) airConsoleManagerObject.SetActive(false);
+        }
+
+        connectedDevices.Clear();
+        deviceColors.Clear();
+        localPlayerCount = 0;
+        currentBotCount = 0;
+        nextColorIndex = 0;
+
+        if (mode == PlayMode.PCLocal)
+        {
+            AddLocalPlayer(); // Adds Player 1 (WASD)
+            AddLocalPlayer(); // Adds Player 2 (Arrows)
+        }
+    }
+
+    public void RequestStartMatch()
+    {
+        if (CurrentState != GameState.Lobby) return;
+
+        int requiredPlayers = 2;
+
+        if (connectedDevices.Count >= requiredPlayers)
+        {
+            StartMatchInit();
+        }
+        else
+        {
+            Debug.LogWarning($"Cannot start match: Need {requiredPlayers} players, but only {connectedDevices.Count} are registered.");
+        }
+    }
+
+    public void AddLocalPlayer()
+    {
+        if (connectedDevices.Count >= MAX_PLAYERS) return;
+        if (localPlayerCount >= 2) return;
+
+        int newId = 800 + localPlayerCount;
+        localPlayerCount++;
+
+        connectedDevices.Add(newId);
+        deviceColors[newId] = availableColors[nextColorIndex % availableColors.Length];
+        nextColorIndex++;
+    }
+
+    public void AddBot()
+    {
+        if (connectedDevices.Count >= MAX_PLAYERS) return;
+
+        currentBotCount++;
+        int botID = -currentBotCount;
+
+        connectedDevices.Add(botID);
+        deviceColors[botID] = availableColors[nextColorIndex % availableColors.Length];
+        nextColorIndex++;
+    }
+
+    public void RemoveBot()
+    {
+        if (currentBotCount <= 0) return;
+
+        int botID = -currentBotCount;
+        connectedDevices.Remove(botID);
+        deviceColors.Remove(botID);
+        currentBotCount--;
+    }
+
+    #endregion
+
     #region AirConsole Callbacks
 
     void OnDeviceConnect(int deviceId)
@@ -155,7 +239,6 @@ public class GameManager : MonoBehaviour
 
             if (CurrentState == GameState.ActiveMatch)
             {
-                // BRIDGE: Spawn single player mid-match
                 GameObject newHunter = SpawnManager.Instance.SpawnSinglePlayerAsHunter(deviceId);
                 activePlayers.Add(newHunter);
                 ApplyColorToPlayer(newHunter, deviceId);
@@ -172,7 +255,7 @@ public class GameManager : MonoBehaviour
     {
         connectedDevices.Remove(deviceId);
 
-        if (connectedDevices.Count < (debugSinglePlayer ? 1 : 2) && CurrentState != GameState.Lobby)
+        if (connectedDevices.Count < 2 && CurrentState != GameState.Lobby)
         {
             foreach (var player in activePlayers) { if (player != null) Destroy(player); }
             activePlayers.Clear();
@@ -210,18 +293,16 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    public void RequestStartMatch()
-    {
-        if (CurrentState != GameState.Lobby) return;
-        int requiredPlayers = debugSinglePlayer ? 1 : 2;
-
-        if (connectedDevices.Count >= requiredPlayers) StartMatchInit();
-    }
-
     private void StartMatchInit()
     {
         currentMatchTimer = matchDuration;
         snitchTimeScores.Clear();
+
+        foreach (int device in connectedDevices)
+        {
+            snitchTimeScores[device] = 0f;
+        }
+
         StartCoroutine(StartCountdownRoutine());
     }
 
@@ -267,16 +348,13 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        UIManager.Instance.ShowNotification($"<color=green>WINNER: Device {winnerID} with {highestTime:F1} seconds!</color>");
+        string winnerName = winnerID < 0 ? "BOT" : (winnerID >= 800 ? $"LOCAL P{winnerID - 799}" : $"PHONE {winnerID}");
+
+        UIManager.Instance.ShowNotification($"<color=green>WINNER: {winnerName} with {highestTime:F1}s!</color>");
         UIManager.Instance.HideNotification(5);
 
         yield return new WaitForSeconds(5f);
         ChangeState(GameState.Lobby);
-
-        if (connectedDevices.Count >= (debugSinglePlayer ? 1 : 2))
-        {
-            StartMatchInit();
-        }
     }
 
     #endregion
@@ -285,14 +363,11 @@ public class GameManager : MonoBehaviour
 
     private void RebuildAllPlayers()
     {
-        // 1. Wipe the board
         foreach (var player in activePlayers) { if (player != null) Destroy(player); }
         activePlayers.Clear();
 
-        // 2. BRIDGE: Ask the SpawnManager to build the list
         activePlayers = SpawnManager.Instance.SpawnAllPlayers(connectedDevices);
 
-        // 3. Apply Colors
         foreach (GameObject player in activePlayers)
         {
             if (player.TryGetComponent<InputSystemManager>(out var input))
@@ -318,7 +393,6 @@ public class GameManager : MonoBehaviour
     {
         if (deviceColors.TryGetValue(deviceID, out Color assignedColor))
         {
-            // Pass the color to the controllers instead of brute-forcing the material
             if (player.TryGetComponent<HunterController>(out var hunter)) hunter.SetBaseColor(assignedColor);
             if (player.TryGetComponent<SnitchController>(out var snitch)) snitch.SetBaseColor(assignedColor);
         }
@@ -383,7 +457,9 @@ public class GameManager : MonoBehaviour
     {
         ChangeState(GameState.PostTag);
 
-        UIManager.Instance.ShowNotification($"¡PLAYER {winningHunterID} CAUGHT THE SNITCH!");
+        string winnerName = winningHunterID < 0 ? "BOT" : (winningHunterID >= 800 ? $"LOCAL P{winningHunterID - 799}" : $"PHONE {winningHunterID}");
+
+        UIManager.Instance.ShowNotification($"¡{winnerName} CAUGHT THE SNITCH!");
         UIManager.Instance.UpdateScoresDisplay(GetCurrentSnitchID(), connectedDevices);
 
         StartCoroutine(ResetRoundRoutine(winningHunterID));
@@ -422,22 +498,7 @@ public class GameManager : MonoBehaviour
 
     #endregion
 
-    #region Debug & Editor GUI
-
-    [ContextMenu("DEBUG: Force Hunter Tag Win")]
-    public void DebugForceTag()
-    {
-        if (CurrentState == GameState.ActiveMatch && connectedDevices.Count > 1)
-        {
-            OnPlayerTagged(connectedDevices[1]);
-        }
-    }
-
-    [ContextMenu("DEBUG: Simulate New Phone Connecting")]
-    public void DebugConnectPhone()
-    {
-        OnDeviceConnect(Random.Range(100, 999));
-    }
+    #region Editor Debug GUI
 
 #if UNITY_EDITOR
     private void OnGUI()
@@ -464,12 +525,6 @@ public class GameManager : MonoBehaviour
                 Color hColor = deviceColors.TryGetValue(hunterID, out var hc) ? hc : Color.white;
                 GUILayout.Label($"<color=#{ColorUtility.ToHtmlStringRGB(hColor)}>▷ DEVICE {hunterID} [HUNTER]</color> - Score: {GetPlayerScore(hunterID):F1}s");
             }
-        }
-
-        if (CurrentState == GameState.Lobby)
-        {
-            GUILayout.Space(10);
-            if (GUILayout.Button("START MATCH (DEBUG)", GUILayout.Height(40))) RequestStartMatch();
         }
 
         if (CurrentState == GameState.Clash)

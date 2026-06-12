@@ -16,7 +16,8 @@ public class InputSystemManager : MonoBehaviour
         if (InputManager.Instance != null && deviceID != -1)
         {
             var data = InputManager.Instance.GetInputForDevice(deviceID);
-            if (data != null) return new Vector2(data.MoveX, data.MoveZ);
+            // Structs are value types and cannot be null, so we use the data directly.
+            return new Vector2(data.MoveX, data.MoveZ);
         }
         return Vector2.zero;
     }
@@ -26,7 +27,8 @@ public class InputSystemManager : MonoBehaviour
         if (InputManager.Instance != null && deviceID != -1)
         {
             var data = InputManager.Instance.GetInputForDevice(deviceID);
-            if (data != null) return data.MoveY;
+            // Structs are value types and cannot be null, so we use the data directly.
+            return data.MoveY;
         }
         return 0f;
     }

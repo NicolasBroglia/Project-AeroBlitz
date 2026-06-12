@@ -21,23 +21,26 @@ public class UIManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI clashTimerText;
 
     [Header("Lobby Settings")]
-    [SerializeField] private GameObject lobbyPanel; // We will create this in the Unity Editor
-    [SerializeField] private GameObject offlineStartButton;    
+    [SerializeField] private GameObject lobbyPanel; 
+    
+    [Header("Lobby Mode Graphics")]
+    [SerializeField] private GameObject pcKeybindsPanel;      // Drag the "Panel" with keybinds here
+    [SerializeField] private GameObject pcStartButton;        // Drag "HostStartButton" here
+    [SerializeField] private TextMeshProUGUI airConsoleWaitingText; // Drag "Waiting_To_Phones_To_Connect" here
 
     [Header("Timer optimization")]
     private int lastDisplayedTime = -1;
+
     void Awake()
     {
         if (Instance == null) Instance = this;
         else Destroy(gameObject);
 
-        // Vaciamos todos los textos apenas arranca la escena
         if (timerText != null) timerText.text = "";
         if (scoresText != null) scoresText.text = "";
         if (playersCountText != null) playersCountText.text = "";
         if (coundownText != null) coundownText.text = "";
 
-        // Apagamos los textos de notificaciones por defecto
         if (notificationText != null)
         {
             notificationText.text = "";
@@ -52,16 +55,11 @@ public class UIManager : MonoBehaviour
 
     public void UpdateTimerDisplay(float timeRemaining)
     {
-        // Redondeamos el float a un número entero
         int currentSeconds = Mathf.CeilToInt(timeRemaining);
 
-        // Chequeamos: ¿El número nuevo es distinto al que ya está en pantalla?
         if (currentSeconds != lastDisplayedTime)
         {
-            // Solo si cambió, actualizamos la variable de control...
             lastDisplayedTime = currentSeconds;
-
-            // ...y generamos el string (esta es la línea pesada, ahora se ejecuta 1 vez por segundo en vez de 60)
             timerText.text = currentSeconds.ToString();
         }
     }
@@ -98,15 +96,12 @@ public class UIManager : MonoBehaviour
         if (coundownText.gameObject.activeSelf) coundownText.gameObject.SetActive(false);
     }
 
-
     public void ShowNotification(string message)
     {
         if (!notificationText.gameObject.activeSelf) notificationText.gameObject.SetActive(true);
         
-        //Restore opacity
         Color c = notificationText.color;
         notificationText.color = new Color(c.r, c.g, c.b, 1f);
-
         notificationText.text = message;
     }
 
@@ -128,12 +123,10 @@ public class UIManager : MonoBehaviour
 
     private IEnumerator ClearNotificationAfter(float seconds, float fadeDuration = 0f)
     {
-        // 1. Esperamos el tiempo que el texto debe estar visible
         yield return new WaitForSeconds(seconds);
 
         if (notificationText.gameObject.activeSelf)
         {
-            // 2. Solo ejecutamos la animación si pidieron un fade mayor a 0 segundos
             if (fadeDuration > 0f)
             {
                 float currentTime = 0f;
@@ -142,30 +135,47 @@ public class UIManager : MonoBehaviour
                 while (currentTime < fadeDuration)
                 {
                     currentTime += Time.deltaTime;
-
-                    // Calculamos el nuevo Alpha. Al estar dentro del IF, nos aseguramos de que fadeDuration nunca sea 0
                     float alpha = Mathf.Lerp(1f, 0f, currentTime / fadeDuration);
                     notificationText.color = new Color(originalColor.r, originalColor.g, originalColor.b, alpha);
-
                     yield return null;
                 }
             }
-
-            // 3. Apagamos el texto (haya habido fade o no)
             notificationText.gameObject.SetActive(false);
         }
     }
 
-    //nico
-    public void ShowLobby(bool isOffline)
+    // --- NEW DYNAMIC LOBBY LOGIC ---
+    public void ShowLobby(GameManager.PlayMode mode)
     {
         if (lobbyPanel != null) lobbyPanel.SetActive(true);
-        if (offlineStartButton != null) offlineStartButton.SetActive(isOffline);
+
+        if (mode == GameManager.PlayMode.PCLocal)
+        {
+            // Show PC visuals, hide AirConsole text
+            if (pcKeybindsPanel != null) pcKeybindsPanel.SetActive(true);
+            if (pcStartButton != null) pcStartButton.SetActive(true);
+            
+            if (airConsoleWaitingText != null) 
+            {
+                airConsoleWaitingText.gameObject.SetActive(false);
+            }
+        }
+        else if (mode == GameManager.PlayMode.AirConsole)
+        {
+            // Hide PC visuals, show AirConsole text
+            if (pcKeybindsPanel != null) pcKeybindsPanel.SetActive(false);
+            if (pcStartButton != null) pcStartButton.SetActive(false);
+            
+            if (airConsoleWaitingText != null) 
+            {
+                airConsoleWaitingText.gameObject.SetActive(true);
+                airConsoleWaitingText.text = "Host: Press START on your phone";
+            }
+        }
     }
 
     public void HideLobby()
     {
         if (lobbyPanel != null) lobbyPanel.SetActive(false);
     }
-    //
 }

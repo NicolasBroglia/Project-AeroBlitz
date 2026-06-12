@@ -3,7 +3,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using NDream.AirConsole;
-using Random = UnityEngine.Random;
 
 public enum GameState
 {
@@ -19,16 +18,22 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager Instance;
 
+    public enum PlayMode { None, PCLocal, AirConsole }
+    public PlayMode CurrentPlayMode { get; private set; } = PlayMode.None;
+
     #region Variables & Properties
 
     public GameState CurrentState { get; private set; }
     private const int MAX_PLAYERS = 5;
     public static event Action<GameState> OnGameStateChanged;
 
+    [Header("Mode & Networking")]
+    [SerializeField] private GameObject airConsoleManagerObject;
+
     [Header("Match Settings")]
     [SerializeField] private float matchDuration = 120f;
     [SerializeField] private float currentMatchTimer;
-    [SerializeField] private Dictionary<int, int> playerScores = new Dictionary<int, int>();
+    [SerializeField] private Dictionary<int, int> playerScores = new Dictionary<int, int>(); // RESOLVED: Using Friend's Int Score
 
     [Header("Clash Settings")]
     [SerializeField] private float clashDuration = 2.5f;
@@ -51,11 +56,14 @@ public class GameManager : MonoBehaviour
     private Dictionary<int, Color> deviceColors = new Dictionary<int, Color>();
     private int nextColorIndex = 0;
 
+    public int localPlayerCount = 0;
+    private int currentBotCount = 0;
+
     [Header("Testing & Debug")]
-    [SerializeField] private bool debugSinglePlayer = false;
-    [SerializeField] private bool offlineMode = false;
-    [SerializeField][Range(2, 5)] private int offlinePlayerCount = 3;
     [SerializeField] private bool showDebugGUI = true;
+
+    private float uiUpdateTimer = 0f;
+    private const float UI_UPDATE_RATE = 0.1f;
 
     #endregion
 
@@ -83,17 +91,6 @@ public class GameManager : MonoBehaviour
 
     void Start()
     {
-        if (offlineMode)
-        {
-            for (int i = 0; i < offlinePlayerCount; i++)
-            {
-                connectedDevices.Add(i);
-                deviceColors[i] = availableColors[nextColorIndex % availableColors.Length];
-                nextColorIndex++;
-            }
-        }
-
-        UIManager.Instance.ShowLobby(offlineMode);
         ChangeState(GameState.Lobby);
     }
 
@@ -104,10 +101,15 @@ public class GameManager : MonoBehaviour
             currentMatchTimer -= Time.deltaTime;
             UIManager.Instance.UpdateTimerDisplay(currentMatchTimer);
 
-            // Actualizamos la UI, pero ya no sumamos tiempo internamente
+            // RESOLVED: We don't add time to score anymore, we just update the UI occasionally
             if (connectedDevices.Count > 0)
             {
-                UIManager.Instance.UpdateScoresDisplay(connectedDevices[0], connectedDevices);
+                uiUpdateTimer += Time.deltaTime;
+                if (uiUpdateTimer >= UI_UPDATE_RATE)
+                {
+                    UIManager.Instance.UpdateScoresDisplay(connectedDevices[0], connectedDevices);
+                    uiUpdateTimer = 0f;
+                }
             }
 
             if (currentMatchTimer <= 0)
@@ -134,6 +136,81 @@ public class GameManager : MonoBehaviour
 
     #endregion
 
+    #region Mode & Roster Management
+
+    public void SetPlayMode(PlayMode mode)
+    {
+        CurrentPlayMode = mode;
+
+        if (mode == PlayMode.AirConsole)
+        {
+            if (airConsoleManagerObject != null) airConsoleManagerObject.SetActive(true);
+        }
+        else if (mode == PlayMode.PCLocal)
+        {
+            if (airConsoleManagerObject != null) airConsoleManagerObject.SetActive(false);
+        }
+
+        connectedDevices.Clear();
+        deviceColors.Clear();
+        localPlayerCount = 0;
+        currentBotCount = 0;
+        nextColorIndex = 0;
+
+        if (mode == PlayMode.PCLocal)
+        {
+            AddLocalPlayer();
+            AddLocalPlayer();
+        }
+    }
+
+    public void RequestStartMatch()
+    {
+        if (CurrentState != GameState.Lobby) return;
+
+        int requiredPlayers = 2;
+
+        if (connectedDevices.Count >= requiredPlayers) StartMatchInit();
+        else Debug.LogWarning($"Cannot start match: Need {requiredPlayers} players, but only {connectedDevices.Count} are registered.");
+    }
+
+    public void AddLocalPlayer()
+    {
+        if (connectedDevices.Count >= MAX_PLAYERS) return;
+        if (localPlayerCount >= 2) return;
+
+        int newId = 800 + localPlayerCount;
+        localPlayerCount++;
+
+        connectedDevices.Add(newId);
+        deviceColors[newId] = availableColors[nextColorIndex % availableColors.Length];
+        nextColorIndex++;
+    }
+
+    public void AddBot()
+    {
+        if (connectedDevices.Count >= MAX_PLAYERS) return;
+
+        currentBotCount++;
+        int botID = -currentBotCount;
+
+        connectedDevices.Add(botID);
+        deviceColors[botID] = availableColors[nextColorIndex % availableColors.Length];
+        nextColorIndex++;
+    }
+
+    public void RemoveBot()
+    {
+        if (currentBotCount <= 0) return;
+
+        int botID = -currentBotCount;
+        connectedDevices.Remove(botID);
+        deviceColors.Remove(botID);
+        currentBotCount--;
+    }
+
+    #endregion
+
     #region AirConsole Callbacks
 
     void OnDeviceConnect(int deviceId)
@@ -152,7 +229,6 @@ public class GameManager : MonoBehaviour
 
             if (CurrentState == GameState.ActiveMatch)
             {
-                // BRIDGE: Spawn single player mid-match
                 GameObject newHunter = SpawnManager.Instance.SpawnSinglePlayerAsHunter(deviceId);
                 activePlayers.Add(newHunter);
                 ApplyColorToPlayer(newHunter, deviceId);
@@ -169,7 +245,7 @@ public class GameManager : MonoBehaviour
     {
         connectedDevices.Remove(deviceId);
 
-        if (connectedDevices.Count < (debugSinglePlayer ? 1 : 2) && CurrentState != GameState.Lobby)
+        if (connectedDevices.Count < 2 && CurrentState != GameState.Lobby)
         {
             foreach (var player in activePlayers) { if (player != null) Destroy(player); }
             activePlayers.Clear();
@@ -207,18 +283,14 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    public void RequestStartMatch()
-    {
-        if (CurrentState != GameState.Lobby) return;
-        int requiredPlayers = debugSinglePlayer ? 1 : 2;
-
-        if (connectedDevices.Count >= requiredPlayers) StartMatchInit();
-    }
-
     private void StartMatchInit()
     {
         currentMatchTimer = matchDuration;
-        playerScores.Clear();
+        playerScores.Clear(); // RESOLVED: Clears friend's new dictionary
+
+        // Ensure everyone starts with 0
+        foreach (int device in connectedDevices) playerScores[device] = 0;
+
         StartCoroutine(StartCountdownRoutine());
     }
 
@@ -245,64 +317,58 @@ public class GameManager : MonoBehaviour
         UIManager.Instance.HideCountdownText();
     }
 
-private IEnumerator EndMatchRoutine()
+    private IEnumerator EndMatchRoutine()
     {
         ChangeState(GameState.MatchOver);
 
         foreach (var player in activePlayers) { if (player != null) Destroy(player); }
         activePlayers.Clear();
 
-        // 1. Buscamos el puntaje más alto y a TODOS los jugadores que lo tengan
-        int highestScore = 0; 
+        int highestScore = 0;
         List<int> winners = new List<int>();
 
         foreach (var score in playerScores)
         {
             if (score.Value > highestScore)
             {
-                // Encontramos un nuevo récord. Limpiamos la lista y agregamos al nuevo líder.
                 highestScore = score.Value;
                 winners.Clear();
                 winners.Add(score.Key);
             }
             else if (score.Value == highestScore && score.Value > 0)
             {
-                // Alguien empató el récord actual. Lo sumamos a la lista.
                 winners.Add(score.Key);
             }
         }
 
-        // 2. Determinamos qué texto mostrar en base a la cantidad de ganadores
+        // RESOLVED: Merging Friend's logic with User's naming convention!
+        List<string> winnerNames = new List<string>();
+        foreach (int id in winners)
+        {
+            winnerNames.Add(id < 0 ? "BOT" : (id >= 800 ? $"LOCAL P{id - 799}" : $"PHONE {id}"));
+        }
+
         string endMessage = "";
 
         if (winners.Count == 0)
         {
-            // Escenario A: Diccionario vacío (Nadie hizo puntos)
             endMessage = "<color=yellow>DRAW: The Snitch survived!</color>";
         }
         else if (winners.Count == 1)
         {
-            // Escenario B: Un solo ganador claro
-            endMessage = $"<color=green>WINNER: Device {winners[0]} with {highestScore} points!</color>";
+            endMessage = $"<color=green>WINNER: {winnerNames[0]} with {highestScore} points!</color>";
         }
         else
         {
-            // Escenario C: Empate. Unimos los IDs de los ganadores con un "&" (Ej: "1 & 2")
-            string tiedDevices = string.Join(" & ", winners);
-            endMessage = $"<color=yellow>TIE: Devices {tiedDevices} with {highestScore} points!</color>";
+            string tiedDevices = string.Join(" & ", winnerNames);
+            endMessage = $"<color=yellow>TIE: {tiedDevices} with {highestScore} points!</color>";
         }
 
-        // 3. Mostramos el mensaje final
         UIManager.Instance.ShowNotification(endMessage);
         UIManager.Instance.HideNotification(5);
 
         yield return new WaitForSeconds(5f);
         ChangeState(GameState.Lobby);
-
-        if (connectedDevices.Count >= (debugSinglePlayer ? 1 : 2))
-        {
-            StartMatchInit();
-        }
     }
     #endregion
 
@@ -310,14 +376,11 @@ private IEnumerator EndMatchRoutine()
 
     private void RebuildAllPlayers()
     {
-        // 1. Wipe the board
         foreach (var player in activePlayers) { if (player != null) Destroy(player); }
         activePlayers.Clear();
 
-        // 2. BRIDGE: Ask the SpawnManager to build the list
         activePlayers = SpawnManager.Instance.SpawnAllPlayers(connectedDevices);
 
-        // 3. Apply Colors
         foreach (GameObject player in activePlayers)
         {
             if (player.TryGetComponent<InputSystemManager>(out var input))
@@ -343,7 +406,6 @@ private IEnumerator EndMatchRoutine()
     {
         if (deviceColors.TryGetValue(deviceID, out Color assignedColor))
         {
-            // Pass the color to the controllers instead of brute-forcing the material
             if (player.TryGetComponent<HunterController>(out var hunter)) hunter.SetBaseColor(assignedColor);
             if (player.TryGetComponent<SnitchController>(out var snitch)) snitch.SetBaseColor(assignedColor);
         }
@@ -408,11 +470,12 @@ private IEnumerator EndMatchRoutine()
     {
         ChangeState(GameState.PostTag);
 
-        // --- SUMAMOS EL PUNTO AL CAZADOR ---
+        // RESOLVED: Give the point AND display the formatted name
         if (!playerScores.ContainsKey(winningHunterID)) playerScores[winningHunterID] = 0;
         playerScores[winningHunterID]++;
 
-        UIManager.Instance.ShowNotification($"¡PLAYER {winningHunterID} CAUGHT THE SNITCH!");
+        string winnerName = winningHunterID < 0 ? "BOT" : (winningHunterID >= 800 ? $"LOCAL P{winningHunterID - 799}" : $"PHONE {winningHunterID}");
+        UIManager.Instance.ShowNotification($"¡{winnerName} CAUGHT THE SNITCH!");
 
         StartCoroutine(ResetRoundRoutine(winningHunterID));
         UIManager.Instance.UpdateScoresDisplay(GetCurrentSnitchID(), connectedDevices);
@@ -449,22 +512,7 @@ private IEnumerator EndMatchRoutine()
 
     #endregion
 
-    #region Debug & Editor GUI
-
-    [ContextMenu("DEBUG: Force Hunter Tag Win")]
-    public void DebugForceTag()
-    {
-        if (CurrentState == GameState.ActiveMatch && connectedDevices.Count > 1)
-        {
-            OnPlayerTagged(connectedDevices[1]);
-        }
-    }
-
-    [ContextMenu("DEBUG: Simulate New Phone Connecting")]
-    public void DebugConnectPhone()
-    {
-        OnDeviceConnect(Random.Range(100, 999));
-    }
+    #region Editor Debug GUI
 
 #if UNITY_EDITOR
     private void OnGUI()
@@ -483,22 +531,14 @@ private IEnumerator EndMatchRoutine()
         {
             int snitchID = connectedDevices[0];
             Color sColor = deviceColors.TryGetValue(snitchID, out var sc) ? sc : Color.white;
-            // Quitamos el :F1s
             GUILayout.Label($"<color=#{ColorUtility.ToHtmlStringRGB(sColor)}>▶ DEVICE {snitchID} [SNITCH]</color> - Score: {GetPlayerScore(snitchID)}");
 
             for (int i = 1; i < connectedDevices.Count; i++)
             {
                 int hunterID = connectedDevices[i];
                 Color hColor = deviceColors.TryGetValue(hunterID, out var hc) ? hc : Color.white;
-                // Quitamos el :F1s
                 GUILayout.Label($"<color=#{ColorUtility.ToHtmlStringRGB(hColor)}>▷ DEVICE {hunterID} [HUNTER]</color> - Score: {GetPlayerScore(hunterID)}");
             }
-        }
-
-        if (CurrentState == GameState.Lobby)
-        {
-            GUILayout.Space(10);
-            if (GUILayout.Button("START MATCH (DEBUG)", GUILayout.Height(40))) RequestStartMatch();
         }
 
         if (CurrentState == GameState.Clash)

@@ -72,12 +72,13 @@ public class UIManager : MonoBehaviour
             playersCountText.text = "Waiting for players...";
 
         StringBuilder sb = new StringBuilder();
+        sb.AppendLine("<b>LEADERBOARD</b>\n");
         if (connectedDevices != null && connectedDevices.Count > 0)
         {
             foreach (int id in connectedDevices)
             {
-                float score = GameManager.Instance.GetPlayerScore(id);
-                sb.AppendLine($"Player {id}: {score:F1}s");
+                int score = GameManager.Instance.GetPlayerScore(id); 
+                sb.AppendLine($"Player {id}:\n{score} points\n");
             }
         }
 

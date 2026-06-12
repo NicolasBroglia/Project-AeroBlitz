@@ -28,12 +28,12 @@ public class GameManager : MonoBehaviour
     public static event Action<GameState> OnGameStateChanged;
 
     [Header("Mode & Networking")]
-    [SerializeField] private GameObject airConsoleManagerObject; // Drag AirConsole prefab here
+    [SerializeField] private GameObject airConsoleManagerObject;
 
     [Header("Match Settings")]
     [SerializeField] private float matchDuration = 120f;
     [SerializeField] private float currentMatchTimer;
-    [SerializeField] private Dictionary<int, float> snitchTimeScores = new Dictionary<int, float>();
+    [SerializeField] private Dictionary<int, int> playerScores = new Dictionary<int, int>(); // RESOLVED: Using Friend's Int Score
 
     [Header("Clash Settings")]
     [SerializeField] private float clashDuration = 2.5f;
@@ -56,7 +56,6 @@ public class GameManager : MonoBehaviour
     private Dictionary<int, Color> deviceColors = new Dictionary<int, Color>();
     private int nextColorIndex = 0;
 
-    // --- NEW ROSTER TRACKING VARIABLES ---
     public int localPlayerCount = 0;
     private int currentBotCount = 0;
 
@@ -64,7 +63,7 @@ public class GameManager : MonoBehaviour
     [SerializeField] private bool showDebugGUI = true;
 
     private float uiUpdateTimer = 0f;
-    private const float UI_UPDATE_RATE = 0.1f; // Update 10 times a second
+    private const float UI_UPDATE_RATE = 0.1f;
 
     #endregion
 
@@ -102,16 +101,13 @@ public class GameManager : MonoBehaviour
             currentMatchTimer -= Time.deltaTime;
             UIManager.Instance.UpdateTimerDisplay(currentMatchTimer);
 
+            // RESOLVED: We don't add time to score anymore, we just update the UI occasionally
             if (connectedDevices.Count > 0)
             {
-                int currentSnitchID = connectedDevices[0];
-
-                snitchTimeScores[currentSnitchID] += Time.deltaTime;
-
                 uiUpdateTimer += Time.deltaTime;
                 if (uiUpdateTimer >= UI_UPDATE_RATE)
                 {
-                    UIManager.Instance.UpdateScoresDisplay(currentSnitchID, connectedDevices);
+                    UIManager.Instance.UpdateScoresDisplay(connectedDevices[0], connectedDevices);
                     uiUpdateTimer = 0f;
                 }
             }
@@ -163,8 +159,8 @@ public class GameManager : MonoBehaviour
 
         if (mode == PlayMode.PCLocal)
         {
-            AddLocalPlayer(); // Adds Player 1 (WASD)
-            AddLocalPlayer(); // Adds Player 2 (Arrows)
+            AddLocalPlayer();
+            AddLocalPlayer();
         }
     }
 
@@ -174,14 +170,8 @@ public class GameManager : MonoBehaviour
 
         int requiredPlayers = 2;
 
-        if (connectedDevices.Count >= requiredPlayers)
-        {
-            StartMatchInit();
-        }
-        else
-        {
-            Debug.LogWarning($"Cannot start match: Need {requiredPlayers} players, but only {connectedDevices.Count} are registered.");
-        }
+        if (connectedDevices.Count >= requiredPlayers) StartMatchInit();
+        else Debug.LogWarning($"Cannot start match: Need {requiredPlayers} players, but only {connectedDevices.Count} are registered.");
     }
 
     public void AddLocalPlayer()
@@ -296,12 +286,10 @@ public class GameManager : MonoBehaviour
     private void StartMatchInit()
     {
         currentMatchTimer = matchDuration;
-        snitchTimeScores.Clear();
+        playerScores.Clear(); // RESOLVED: Clears friend's new dictionary
 
-        foreach (int device in connectedDevices)
-        {
-            snitchTimeScores[device] = 0f;
-        }
+        // Ensure everyone starts with 0
+        foreach (int device in connectedDevices) playerScores[device] = 0;
 
         StartCoroutine(StartCountdownRoutine());
     }
@@ -336,27 +324,52 @@ public class GameManager : MonoBehaviour
         foreach (var player in activePlayers) { if (player != null) Destroy(player); }
         activePlayers.Clear();
 
-        int winnerID = -1;
-        float highestTime = -1f;
+        int highestScore = 0;
+        List<int> winners = new List<int>();
 
-        foreach (var score in snitchTimeScores)
+        foreach (var score in playerScores)
         {
-            if (score.Value > highestTime)
+            if (score.Value > highestScore)
             {
-                highestTime = score.Value;
-                winnerID = score.Key;
+                highestScore = score.Value;
+                winners.Clear();
+                winners.Add(score.Key);
+            }
+            else if (score.Value == highestScore && score.Value > 0)
+            {
+                winners.Add(score.Key);
             }
         }
 
-        string winnerName = winnerID < 0 ? "BOT" : (winnerID >= 800 ? $"LOCAL P{winnerID - 799}" : $"PHONE {winnerID}");
+        // RESOLVED: Merging Friend's logic with User's naming convention!
+        List<string> winnerNames = new List<string>();
+        foreach (int id in winners)
+        {
+            winnerNames.Add(id < 0 ? "BOT" : (id >= 800 ? $"LOCAL P{id - 799}" : $"PHONE {id}"));
+        }
 
-        UIManager.Instance.ShowNotification($"<color=green>WINNER: {winnerName} with {highestTime:F1}s!</color>");
+        string endMessage = "";
+
+        if (winners.Count == 0)
+        {
+            endMessage = "<color=yellow>DRAW: The Snitch survived!</color>";
+        }
+        else if (winners.Count == 1)
+        {
+            endMessage = $"<color=green>WINNER: {winnerNames[0]} with {highestScore} points!</color>";
+        }
+        else
+        {
+            string tiedDevices = string.Join(" & ", winnerNames);
+            endMessage = $"<color=yellow>TIE: {tiedDevices} with {highestScore} points!</color>";
+        }
+
+        UIManager.Instance.ShowNotification(endMessage);
         UIManager.Instance.HideNotification(5);
 
         yield return new WaitForSeconds(5f);
         ChangeState(GameState.Lobby);
     }
-
     #endregion
 
     #region Player Management
@@ -457,13 +470,14 @@ public class GameManager : MonoBehaviour
     {
         ChangeState(GameState.PostTag);
 
-        string winnerName = winningHunterID < 0 ? "BOT" : (winningHunterID >= 800 ? $"LOCAL P{winningHunterID - 799}" : $"PHONE {winningHunterID}");
+        // RESOLVED: Give the point AND display the formatted name
+        if (!playerScores.ContainsKey(winningHunterID)) playerScores[winningHunterID] = 0;
+        playerScores[winningHunterID]++;
 
+        string winnerName = winningHunterID < 0 ? "BOT" : (winningHunterID >= 800 ? $"LOCAL P{winningHunterID - 799}" : $"PHONE {winningHunterID}");
         UIManager.Instance.ShowNotification($"¡{winnerName} CAUGHT THE SNITCH!");
-        UIManager.Instance.UpdateScoresDisplay(GetCurrentSnitchID(), connectedDevices);
 
         StartCoroutine(ResetRoundRoutine(winningHunterID));
-
         UIManager.Instance.UpdateScoresDisplay(GetCurrentSnitchID(), connectedDevices);
     }
 
@@ -492,7 +506,7 @@ public class GameManager : MonoBehaviour
 
     public float GetTimeRemaining() { return currentMatchTimer; }
     public int GetConnectedPlayerCount() { return connectedDevices.Count; }
-    public float GetPlayerScore(int deviceID) { return snitchTimeScores.ContainsKey(deviceID) ? snitchTimeScores[deviceID] : 0f; }
+    public int GetPlayerScore(int deviceID) { return playerScores.ContainsKey(deviceID) ? playerScores[deviceID] : 0; }
     public int GetCurrentSnitchID() { return (CurrentState == GameState.ActiveMatch && connectedDevices.Count > 0) ? connectedDevices[0] : -1; }
     public List<int> GetConnectedDevices() { return connectedDevices; }
 
@@ -517,13 +531,13 @@ public class GameManager : MonoBehaviour
         {
             int snitchID = connectedDevices[0];
             Color sColor = deviceColors.TryGetValue(snitchID, out var sc) ? sc : Color.white;
-            GUILayout.Label($"<color=#{ColorUtility.ToHtmlStringRGB(sColor)}>▶ DEVICE {snitchID} [SNITCH]</color> - Score: {GetPlayerScore(snitchID):F1}s");
+            GUILayout.Label($"<color=#{ColorUtility.ToHtmlStringRGB(sColor)}>▶ DEVICE {snitchID} [SNITCH]</color> - Score: {GetPlayerScore(snitchID)}");
 
             for (int i = 1; i < connectedDevices.Count; i++)
             {
                 int hunterID = connectedDevices[i];
                 Color hColor = deviceColors.TryGetValue(hunterID, out var hc) ? hc : Color.white;
-                GUILayout.Label($"<color=#{ColorUtility.ToHtmlStringRGB(hColor)}>▷ DEVICE {hunterID} [HUNTER]</color> - Score: {GetPlayerScore(hunterID):F1}s");
+                GUILayout.Label($"<color=#{ColorUtility.ToHtmlStringRGB(hColor)}>▷ DEVICE {hunterID} [HUNTER]</color> - Score: {GetPlayerScore(hunterID)}");
             }
         }
 

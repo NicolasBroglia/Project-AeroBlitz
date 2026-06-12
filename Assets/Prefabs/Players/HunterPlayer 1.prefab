@@ -120,6 +120,8 @@ MonoBehaviour:
   dashForce: 55
   dashCooldown: 3
   dashDuration: 0.25
+  minBrightness: 0.6
+  maxBrightness: 1
 --- !u!114 &253083277499436173
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -153,6 +155,7 @@ MonoBehaviour:
   baseShadowScale: 2.5
   centerOffset: {x: 0, y: 0, z: 0}
   shadowProportions: {x: 1, y: 1, z: 1}
+  tetherAlpha: 0.15
 --- !u!120 &7397904432980778400
 LineRenderer:
   serializedVersion: 3

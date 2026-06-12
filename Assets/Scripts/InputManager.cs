@@ -1,5 +1,7 @@
 using UnityEngine;
+#if UNITY_WEBGL || UNITY_EDITOR
 using NDream.AirConsole;
+#endif
 using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
 using UnityEngine.InputSystem;
@@ -26,17 +28,22 @@ public class InputManager : MonoBehaviour
 
     void OnEnable()
     {
+#if UNITY_WEBGL || UNITY_EDITOR
         AirConsole.instance.onMessage += OnMessage;
         AirConsole.instance.onDisconnect += OnDisconnect;
+#endif
     }
 
     void OnDisable()
     {
+#if UNITY_WEBGL || UNITY_EDITOR
         if (AirConsole.instance != null)
         {
             AirConsole.instance.onMessage -= OnMessage;
             AirConsole.instance.onDisconnect -= OnDisconnect;
         }
+#endif
+
     }
 
     void OnMessage(int fromDeviceID, JToken data)

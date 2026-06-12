@@ -2,7 +2,9 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+#if UNITY_WEBGL || UNITY_EDITOR
 using NDream.AirConsole;
+#endif
 
 public enum GameState
 {
@@ -76,17 +78,21 @@ public class GameManager : MonoBehaviour
 
     void OnEnable()
     {
+#if UNITY_WEBGL || UNITY_EDITOR
         AirConsole.instance.onConnect += OnDeviceConnect;
         AirConsole.instance.onDisconnect += OnDeviceDisconnect;
+#endif
     }
 
     void OnDisable()
     {
+#if UNITY_WEBGL || UNITY_EDITOR
         if (AirConsole.instance != null)
         {
             AirConsole.instance.onConnect -= OnDeviceConnect;
             AirConsole.instance.onDisconnect -= OnDeviceDisconnect;
         }
+#endif
     }
 
     void Start()
@@ -262,7 +268,7 @@ public class GameManager : MonoBehaviour
     {
         CurrentState = newState;
         OnGameStateChanged?.Invoke(newState);
-
+#if UNITY_WEBGL || UNITY_EDITOR
         if (AirConsole.instance != null)
         {
             try
@@ -281,6 +287,7 @@ public class GameManager : MonoBehaviour
             }
             catch (System.Exception) { }
         }
+#endif
     }
 
     private void StartMatchInit()

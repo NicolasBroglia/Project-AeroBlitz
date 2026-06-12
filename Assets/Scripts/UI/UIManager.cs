@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class UIManager : MonoBehaviour
 {
@@ -13,6 +14,7 @@ public class UIManager : MonoBehaviour
     [SerializeField] private TextMeshProUGUI scoresText;
     [SerializeField] private TextMeshProUGUI timerText;
     [SerializeField] private TextMeshProUGUI coundownText;
+    [SerializeField] private Button quitButton;
 
     [Header("Minigame & Notifications")]
     [Tooltip("Texto central para avisos: ¡Atrapada!, ¡Mash!, etc.")]
@@ -51,6 +53,11 @@ public class UIManager : MonoBehaviour
             clashTimerText.text = "";
             clashTimerText.gameObject.SetActive(false);
         }
+    }
+
+    private void Start()
+    {
+        quitButton.onClick.AddListener(() => Application.Quit());
     }
 
     public void UpdateTimerDisplay(float timeRemaining)
@@ -178,4 +185,10 @@ public class UIManager : MonoBehaviour
     {
         if (lobbyPanel != null) lobbyPanel.SetActive(false);
     }
+
+    public void SetQuitButtonActive(bool isActive)
+    {
+        if (quitButton != null) quitButton.gameObject.SetActive(isActive);
+    }
+
 }

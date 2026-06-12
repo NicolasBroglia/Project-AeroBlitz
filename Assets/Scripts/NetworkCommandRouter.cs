@@ -1,5 +1,7 @@
 using UnityEngine;
+#if UNITY_WEBGL || UNITY_EDITOR
 using NDream.AirConsole;
+#endif
 using Newtonsoft.Json.Linq;
 
 // This script sits on an empty GameObject in your scene
@@ -7,15 +9,19 @@ public class NetworkCommandRouter : MonoBehaviour
 {
     void OnEnable()
     {
+#if UNITY_WEBGL || UNITY_EDITOR
         AirConsole.instance.onMessage += OnNetworkMessage;
+#endif
     }
 
     void OnDisable()
     {
+#if UNITY_WEBGL || UNITY_EDITOR
         if (AirConsole.instance != null)
         {
             AirConsole.instance.onMessage -= OnNetworkMessage;
         }
+#endif
     }
 
     private void OnNetworkMessage(int fromDeviceID, JToken data)

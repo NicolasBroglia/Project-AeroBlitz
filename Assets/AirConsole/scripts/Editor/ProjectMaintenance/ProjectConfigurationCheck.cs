@@ -57,9 +57,9 @@ namespace NDream.AirConsole.Editor {
             }
 
             if (IsPlatformSupported(BuildTarget.WebGL)) {
-                EditorUserBuildSettings.SwitchActiveBuildTarget(BuildTargetGroup.WebGL, BuildTarget.WebGL);
+                //EditorUserBuildSettings.SwitchActiveBuildTarget(BuildTargetGroup.WebGL, BuildTarget.WebGL);
             } else if (IsPlatformSupported(BuildTarget.Android)) {
-                EditorUserBuildSettings.SwitchActiveBuildTarget(BuildTargetGroup.Android, BuildTarget.Android);
+                //EditorUserBuildSettings.SwitchActiveBuildTarget(BuildTargetGroup.Android, BuildTarget.Android);
             } else {
                 EditorNotificationService.InvokeError($"AirConsole {Settings.VERSION} requires the WebGL or Android module to be present!",
                     true);
